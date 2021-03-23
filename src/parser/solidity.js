@@ -634,6 +634,17 @@ class FunctionDef {
 
                     //not external
 
+                } else if (parserHelpers.isMemberAccessOfNameValueExpression(__node)){
+                    // contract.method{value: 1}();  -- is always external
+                    current_funccall.type = "NameValueCall";
+                    current_funccall.callType = "external";
+                    current_funccall.name = current_funccall.name || __node.expression.expression.memberName;
+                    current_funccall.declaration = {
+                        type: "Identifier",
+                        typeName: undefined,
+                        loc: __node.loc,
+                    };
+
                 } else if (parserHelpers.isMemberAccess(__node)) {
                     current_funccall.name = expr.memberName;
                     current_funccall.type = "memberAccess";
@@ -696,7 +707,6 @@ class FunctionDef {
                             current_funccall.callType = "external";
                             current_funccall.declaration = __node.expression.expression.expression;
                         }
-
 
                     } else if (parserHelpers.isMemberAccessOfArrayOrMapping(__node)) {
                         //address[] addresses;  addresses[i].send();

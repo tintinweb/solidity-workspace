@@ -78,6 +78,13 @@ const parserHelpers = {
     return node.type == 'IndexAccess';
   },
 
+  isMemberAccessOfNameValueExpression: node => {
+    const expr = node.expression.expression;
+    return node.type === 'FunctionCall'
+      && node.expression.type === "NameValueExpression"
+      && expr.type === 'MemberAccess';
+  },
+
   isMemberAccessOfArrayOrMapping: node => {
     const expr = node.expression.expression;
     return node.type === 'FunctionCall'
