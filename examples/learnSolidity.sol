@@ -56,6 +56,8 @@ contract Ballot {
         x.test(2);
         address payable lol = 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4;
         lol.transfer(2);
+        msg.sender.send{1 ETH}(); //this is actually illegal
+        RandomContract(lol).doSomething{value: 1 ETH}();
 
         // For each of the provided proposal names,
         // create a new proposal object and add it
