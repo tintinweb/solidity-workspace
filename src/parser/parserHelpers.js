@@ -14,7 +14,7 @@ const BUILTINS = [
 ];
 
 //https://github.com/ethereum/solidity/blob/c5879589af646bee899745c1a21d065537ad0ea5/test/libsolidity/SolidityParser.cpp#L509
-const RESERVED_KEYWORDS = [ 
+const RESERVED_KEYWORDS = [
   "abstract",
   "after",
   "alias",
@@ -70,32 +70,53 @@ const parserHelpers = {
   isMemberAccessOfAddress: node => {
     const expr = node.expression.expression;
     return expr.type === 'FunctionCall'
-        && expr.expression.hasOwnProperty('typeName')
-        && expr.expression.typeName.name === 'address';
+      && expr.expression.hasOwnProperty('typeName')
+      && expr.expression.typeName.name === 'address';
   },
 
   isIndexAccess: node => {
-    return node.type == 'IndexAccess' ;
+    return node.type == 'IndexAccess';
   },
 
   isMemberAccessOfArrayOrMapping: node => {
     const expr = node.expression.expression;
     return node.type === 'FunctionCall'
-        && expr.type === 'IndexAccess';
+      && expr.type === 'IndexAccess';
+  },
+
+  isMemberAccessOfGlobalEvmVar: node => {
+    const expr = node.expression.expression;
+
+    if (!expr.expression || expr.expression.type !== "Identifier") {
+      return false; // not msg.sender, tx.origin
+    }
+
+    //get first level element: msg.sender, tx.origin
+    let first = expr.expression.name;
+
+    return node.type === 'FunctionCall'
+      && expr.type === 'MemberAccess'
+      && (
+        (expr.memberName === "sender" && first === "msg")
+        ||
+        (expr.memberName === "origin" && first === "tx")
+        ||
+        (expr.memberName === "coinbase" && first === "block")
+      );
   },
 
   isMemberAccessOfStruct: node => {
     const expr = node.expression.expression;
     return node.type === 'FunctionCall'
-        && expr.type === 'MemberAccess';
+      && expr.type === 'MemberAccess';
   },
 
   isAContractTypecast: node => {
     const expr = node.expression.expression;
     // @TODO: replace lowercase for better filtering
     return expr.type === 'FunctionCall'
-        && expr.expression.hasOwnProperty('name')
-        && !isLowerCase(expr.expression.name[0]);
+      && expr.expression.hasOwnProperty('name')
+      && !isLowerCase(expr.expression.name[0]);
   },
 
   isUserDefinedDeclaration: node => {
@@ -104,41 +125,41 @@ const parserHelpers = {
 
   isUserDefinedArrayDeclaration: node => {
     return node.hasOwnProperty('typeName')
-    && node.typeName.hasOwnProperty('type')
-    && node.typeName.type === 'ArrayTypeName'
-    && node.typeName.baseTypeName
-    && node.typeName.baseTypeName.type === 'UserDefinedTypeName';
+      && node.typeName.hasOwnProperty('type')
+      && node.typeName.type === 'ArrayTypeName'
+      && node.typeName.baseTypeName
+      && node.typeName.baseTypeName.type === 'UserDefinedTypeName';
   },
 
   isUserDefinedMappingDeclaration: node => {
     return node.hasOwnProperty('typeName')
-    && node.typeName.hasOwnProperty('type')
-    && node.typeName.type === 'Mapping'
-    && node.typeName.valueType
-    && node.typeName.valueType.type === 'UserDefinedTypeName';
+      && node.typeName.hasOwnProperty('type')
+      && node.typeName.type === 'Mapping'
+      && node.typeName.valueType
+      && node.typeName.valueType.type === 'UserDefinedTypeName';
   },
 
   isAddressDeclaration: node => {
     return node.hasOwnProperty('typeName')
-        && node.typeName.hasOwnProperty('type')
-        && node.typeName.type === 'ElementaryTypeName'
-        && node.typeName.name === 'address';
+      && node.typeName.hasOwnProperty('type')
+      && node.typeName.type === 'ElementaryTypeName'
+      && node.typeName.name === 'address';
   },
   isAddressArrayDeclaration: node => {
     return node.hasOwnProperty('typeName')
-        && node.typeName.hasOwnProperty('type')
-        && node.typeName.type === 'ArrayTypeName'
-        && node.typeName.baseTypeName
-        && node.typeName.baseTypeName.type === 'ElementaryTypeName'
-        && node.typeName.baseTypeName.name === 'address';
+      && node.typeName.hasOwnProperty('type')
+      && node.typeName.type === 'ArrayTypeName'
+      && node.typeName.baseTypeName
+      && node.typeName.baseTypeName.type === 'ElementaryTypeName'
+      && node.typeName.baseTypeName.name === 'address';
   },
   isAddressMappingDeclaration: node => {
     return node.hasOwnProperty('typeName')
-        && node.typeName.hasOwnProperty('type')
-        && node.typeName.type === 'Mapping'
-        && node.typeName.valueType
-        && node.typeName.valueType.type === 'ElementaryTypeName'
-        && node.typeName.valueType.name === 'address';
+      && node.typeName.hasOwnProperty('type')
+      && node.typeName.type === 'Mapping'
+      && node.typeName.valueType
+      && node.typeName.valueType.type === 'ElementaryTypeName'
+      && node.typeName.valueType.name === 'address';
   },
 };
 

@@ -10,15 +10,15 @@ const path = require("path");
 const { Workspace } = require('./index');
 let ws = new Workspace();
 
-function cmdFlatten(argv){
+function cmdFlatten(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
             ws.add(f);
-        }          
+        }
     });
     ws.withParserReady().then(() => {
-        if(argv.t){
+        if (argv.t) {
             ws.find(sourceUnit => sourceUnit.contracts[argv.t]).then(results => {
                 results.forEach(r => {
                     console.log(r.flatten());
@@ -29,28 +29,28 @@ function cmdFlatten(argv){
                 console.log(ws.get(path.resolve(f)).flatten());
             });
         }
-    });  
+    });
 }
 
-function cmdInheritance(argv){
+function cmdInheritance(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
             ws.add(f);
-        }          
+        }
     });
     ws.withParserReady().then(() => {
-        if(argv.t){
+        if (argv.t) {
             ws.find(sourceUnit => sourceUnit.contracts[argv.t]).then(results => {
                 results.forEach(r => {
                     Object.entries(r.contracts).forEach(([name, c]) => {
-                        if(name == argv.t){
+                        if (name == argv.t) {
                             console.log(`${name}: \n  ↖${c.linearizedDependencies.map(e => `${e}`).join("\n  ↖")}`);
                         }
                     });
-                    
+
                 });
-                
+
             });
         } else {
             argv.files.forEach(f => {
@@ -59,21 +59,21 @@ function cmdInheritance(argv){
                 });
             });
         }
-    }); 
+    });
 }
 
-function cmdStats(argv){
+function cmdStats(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
             ws.add(f);
-        }          
+        }
     });
     ws.withParserReady().then(() => {
         let allContracts = ws.getAllContracts();
 
         console.log(`SourceUnits: ${Object.keys(ws.sourceUnits).length}`);
-        console.log(`Contracts: ${Object.values(ws.sourceUnits).map(su => Object.keys(su.contracts).length).reduce((a,b) => a+b, 0)}`);
+        console.log(`Contracts: ${Object.values(ws.sourceUnits).map(su => Object.keys(su.contracts).length).reduce((a, b) => a + b, 0)}`);
         console.log(`Unique Contract Names (excluding duplicate contract names): ${Object.keys(allContracts).length}`);
     });
 }
@@ -128,7 +128,7 @@ process.argv.forEach(f => {
     if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
         // add files to virtual workspace
         ws.add(f);
-    }          
+    }
 });
 // output
 //console.log(ws); //show complete workspace

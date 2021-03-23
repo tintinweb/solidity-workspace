@@ -5,10 +5,10 @@
  * 
  * */
 
-class ParserError extends Error {}
+class ParserError extends Error { }
 
 class CacheHit {
-    constructor(sourceUnit){
+    constructor(sourceUnit) {
         this.sourceUnit = sourceUnit;
     }
 }

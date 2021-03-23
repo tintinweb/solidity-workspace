@@ -23,7 +23,7 @@ async function* getFiles(dir, filter) {
         const res = resolve(dir, dirent.name);
         if (dirent.isDirectory()) {
             yield* getFiles(res);
-        } else if(!filter || filter(res)) {
+        } else if (!filter || filter(res)) {
             yield res;
         }
     }
