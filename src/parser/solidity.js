@@ -36,16 +36,23 @@ class Workspace {
 
     async add(fpath, options) { // options = {skipExistingPath, content}
         options = options || {};
-        let prom = new Promise(async (resolve, reject) => {
-            var sourceUnit;
+        fpath = path.resolve(fpath); //always use abspath
 
-            fpath = path.resolve(fpath); //always use abspath
+        // check if there's a running task for that source unit already
+        let maybeTasks = this._runningTasks.find(t => t.meta===fpath);
+        if (maybeTasks){
+            return maybeTasks; // skip adding another job for this file
+        }
+
+        let promise = new Promise(async (resolve, reject) => {
+            var sourceUnit;
+            let cacheHit;
 
             // avoid parsing files multiple times when subparsing imports; normally not used. lib will automatically return cached sourceUnits if available (see CacheHit)
             if (options.skipExistingPath && this.sourceUnits[fpath]) {
                 return resolve(this.sourceUnits[fpath]);
             }
-            
+
             try {
                 // good path; "fromSource()" will auto. check. internal cache to avoid parsing the same file multiple times
                 sourceUnit = new SourceUnit(this);
@@ -68,32 +75,40 @@ class Workspace {
                     // 
                     sourceUnit = e.sourceUnit.clone(); //clone the object, override the path
                     sourceUnit.filePath = fpath;
+                    cacheHit = true;
                 } else {
                     throw e;
                 }
             }
             this.sourceUnits[fpath] = sourceUnit;
 
-            if (this.options.parseImports) {
+            if (!cacheHit && this.options.parseImports) { //avoid parsing imports for cacheHits
                 await sourceUnit._fsFindImports().forEach(importPath => this.add(importPath, { skipExistingPath: true })); // avoid race when parsing the same imports
             }
 
             return resolve(sourceUnit);
         });
-        this._runningTasks.push(prom);
-        return prom;
+        this._runningTasks.push({meta:fpath, promise});
+        return promise;
     }
 
-    withParserReady() {
-        return new Promise((resolve, reject) => {
-            Promise.all(this._runningTasks).then(values => {
-                //wait for all the ".add" jobs to finish
-                this._runningTasks = [];
-                this.update();
-                resolve();
-            });
-        });
+    async withParserReady() {
+        let hardStop = Date.now() + 5*1000; // exit loop if stuck for more than 5 seconds
+        let emptyPromise = false;
 
+        while(this._runningTasks.length!==0 && Date.now()<hardStop){
+            let values = await Promise.all(this._runningTasks.map(t => t.promise));
+            if(values.length===0){
+                emptyPromise = true;
+                break;
+            }
+            this._runningTasks = this._runningTasks.filter(p => !values.some(v => p.meta === v.filePath));
+        }
+        if(emptyPromise){
+            return;
+        }
+        this.update();
+        return;
     }
 
     update() {
@@ -139,6 +154,44 @@ class Workspace {
 
     /** internal */
 
+    _updateInheritedNames(contract, subcontract) {
+        for (let _var in subcontract.stateVars) {
+            if (subcontract.stateVars[_var].visibility != "private") {
+                contract.inherited_names[_var] = subcontract;
+            }
+        }
+        for (let _var of subcontract.functions) {
+            if (_var._node.visibility != "private") {
+                contract.inherited_names[_var.name] = subcontract;
+            }
+        }
+        for (let _var of subcontract.events) {
+            if (_var._node.visibility != "private") {
+                contract.inherited_names[_var.name] = subcontract;
+            }
+        }
+        for (let _var in subcontract.modifiers) {
+            if (subcontract.modifiers[_var].visibility != "private") {
+                contract.inherited_names[_var] = subcontract;
+            }
+        }
+        for (let _var in subcontract.enums) {
+            if (subcontract.enums[_var].visibility != "private") {
+                contract.inherited_names[_var] = subcontract;
+            }
+        }
+        for (let _var in subcontract.structs) {
+            if (subcontract.structs[_var].visibility != "private") {
+                contract.inherited_names[_var] = subcontract;
+            }
+        }
+        for (let _var in subcontract.mappings) {
+            if (subcontract.mappings[_var].visibility != "private") {
+                contract.inherited_names[_var] = subcontract;
+            }
+        }
+    }
+
     _resolveDependencies() {
         let allContracts = this.getAllContracts(true);
         let dependencyMap = Object.values(allContracts).reduce((acc, cur) => {
@@ -148,14 +201,22 @@ class Workspace {
 
         Object.entries(linearize(dependencyMap, { reverse: true })).forEach(([contractName, linearizedDeps]) => {
             if (allContracts[contractName]) { //ignore contracts we dont know yet (missing import?)
-                allContracts[contractName].linearizedDependencies = linearizedDeps || [];
+                allContracts[contractName].linearizedDependencies = linearizedDeps.map(contractName => {
+                    let contractObjs = this.findContractsByNameSync(contractName);
+                    if(contractObjs.length > 0 ){
+                        let subcontract = contractObjs.pop();
+                        //this._updateInheritedNames(allContracts[contractName], subcontract); //this is a heavy op
+                        return subcontract; //pop one
+                    }
+                    return contractName; //not found
+                }) || [];
             }
         });
     }
 
     _resolveExternalCalls2ndPass() {
         Object.values(this.sourceUnits).forEach(su => {
-            Object.values(su.getExternalCalls()).filter(c => c.callType == "external").forEach(c => {
+            Object.values(su.getExternalCalls(c => c.callType === "external" || c.callType === "inconclusive" )).forEach(c => {
                 switch (c.type) {
                     case "memberAccessOfVar":
                         // 2nd pass check if the typename target turns out to be a library call. in that case, remove it from external call list
@@ -169,6 +230,21 @@ class Workspace {
                             c.callType = undefined;
                         }
 
+                        break;
+                    case "memberAccessOfUnknownIdentifier":
+                        if(c.declaration){
+                            break; //skip, already resolved
+                        }
+                        // check if we finally know if this call points to a library call or not.
+                        // c._helper contains the contract object. let's find the corresponding contracts
+                        let deps = c._helper.contract.linearizedDependencies;
+                        const targetVarName = c._node.expression.expression.name;
+                        let declaration = deps.find(depContract => depContract.stateVars[targetVarName]);
+                        if(declaration){
+                            c.declaration = declaration.stateVars[targetVarName];
+                            c.callType = "external";  //update to external call
+                            c.type = "memberAccessOfUnknownIdentifierResolvedToInheritedSVar";
+                        }
                         break;
                 }
             });
@@ -192,7 +268,7 @@ class SourceUnit {
     }
 
     fromFile(fpath) {
-        const {filePath, content} = SourceUnit.getFileContent(fpath);  // returns {fpath, content}
+        const { filePath, content } = SourceUnit.getFileContent(fpath);  // returns {fpath, content}
         this.filePath = filePath;
         console.log(`→ fromFile(): ${this.filePath}`);
         this.fromSource(content);
@@ -204,9 +280,10 @@ class SourceUnit {
         console.log(`→ fromSource(): hash=${this.hash}`);
 
         /** cache-lookup first */
-        if (this.workspace.sourceUnitsCache[this.hash]) {
-            console.log('→ fromSource(): cache hit!');
-            throw new CacheHit(this.workspace.sourceUnitsCache[this.hash]);
+        let cached = this.workspace.sourceUnitsCache[this.hash];
+        if (cached) {
+            console.log(`→ fromSource(): cache hit! (${cached.filePath})`);
+            throw new CacheHit(cached);
         }
 
         /** parser magic */
@@ -286,12 +363,12 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
         }
         const filePath = path.resolve(fpath);
         const content = fs.readFileSync(filePath).toString('utf-8');
-        return {filePath, content};
+        return { filePath, content };
     }
 
     // mainly used to get the filehash while "half-preparing" the source-unit object
     static getFileHash(fpath) {
-        const {_, content} = SourceUnit.getFileContent(fpath);
+        const { _, content } = SourceUnit.getFileContent(fpath);
         return SourceUnit.getHash(content);
     }
 
@@ -454,8 +531,8 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
         return { contract };
     }
 
-    getExternalCalls() {
-        return Object.values(this.contracts).reduce((acc, contract) => acc = acc.concat(contract.getExternalCalls()), []);
+    getExternalCalls(criteria) {
+        return Object.values(this.contracts).reduce((acc, contract) => acc = acc.concat(contract.getExternalCalls(criteria)), []);
     }
 }
 
@@ -549,8 +626,8 @@ class Contract {
         });
     }
 
-    getExternalCalls() {
-        return this.functions.reduce((acc, cur) => acc.concat(cur.getExternalCalls()), []);
+    getExternalCalls(criteria) {
+        return this.functions.reduce((acc, cur) => acc.concat(cur.getExternalCalls(criteria)), []);
     }
 
     _existsUsingForDeclaration(typeName) {
@@ -628,7 +705,35 @@ class FunctionDef {
             AssemblyFor(__node) { current_function.complexity += 2; },
             AssemblyCase(__node) { current_function.complexity += 1; },
             Conditional(__node) { current_function.complexity += 1; },
-            AssemblyCall(__node) { current_function.complexity += 1; },
+            AssemblyCall(__node) {
+
+                switch (__node.functionName) {
+                    case "call":
+                    case "delegatecall":
+                    case "staticcall":
+                    case "callcode":
+                        current_function.complexity += 2;
+                        current_function.calls.push({ //track asm calls
+                            name: __node.functionName,
+                            //contract_name: current_contract,
+                            type: "AssemblyCall",
+                            callType: "external",
+                            declaration: {
+                                type: "Custom",
+                                typeName: {
+                                    namePath: "assembly"
+                                },
+                                loc: __node.loc,
+                            },
+                            _node: __node,
+                        });
+
+                        break;
+                    default:
+                        current_function.complexity += 1;
+                        break;
+                }
+            },
             FunctionCall(__node) {
                 current_function.complexity += 2;
 
@@ -650,7 +755,7 @@ class FunctionDef {
 
                     //not external
 
-                } else if (parserHelpers.isMemberAccessOfNameValueExpression(__node)){
+                } else if (parserHelpers.isMemberAccessOfNameValueExpression(__node)) {
                     // contract.method{value: 1}();  -- is always external
                     current_funccall.type = "NameValueCall";
                     current_funccall.callType = "external";
@@ -690,6 +795,19 @@ class FunctionDef {
 
                             //@todo - this can still be an internal call. check if target function is internal. do nothing in this case.
                             //@todo - if target is a library. do nothing
+                        } else if(!declaration) {
+                            // potentially inherited.function(call)
+                            const is_library = !!current_contract._parent.workspace.findSync(su => su.contracts.hasOwnProperty(expr.expression.name) && su.contracts[expr.expression.name]._node.kind == "library").length;
+                            if(is_library){
+                                // true negative: it is a library call, ignore
+                            } else {
+                                // might still be a libcall; need to refine in 2nd pass
+                                current_funccall.type = "memberAccessOfUnknownIdentifier";
+                                current_funccall.callType = "inconclusive";
+                                current_funccall.declaration = declaration; //resolve for node.expression.expression.name later
+                                current_funccall._helper = {contract: current_contract};
+                            }
+                            
                         }
                         //2) could be a contract type
 
@@ -780,7 +898,7 @@ class FunctionDef {
 
                     } else {
                         //
-                        current_funccall.debug = __node.expression;
+                        //current_funccall.debug = __node.expression;
                     }
                 } else {
                     /** stuff that ends up here is very likely not relevant for us. */
@@ -814,9 +932,43 @@ class FunctionDef {
                 if (!current_function) {
                     return;
                 }
-                __node.inFunction = current_function;
-                __node.scope = undefined;
-                __node.scopeRef = undefined;
+                let ident = __node;
+                ident.inFunction = current_function;
+                ident.scope = undefined;
+                ident.declaration = undefined;
+
+                // find declaration; narrow scope first
+                if (current_function.declarations[ident.name]) {
+                    // local declaration; can be ARGS, RETURNS or BODY
+                    if (current_function.arguments[ident.name]) {
+                        ident.scope = "argument";
+                        ident.declaration = current_function.arguments[ident.name];
+                    } else if (current_function.returns[ident.name]) {
+                        ident.scope = "returns";
+                        ident.declaration = current_function.returns[ident.name];
+                    } else {
+                        ident.scope = "body";
+                        ident.declaration = current_function.declarations[ident.name];
+                    }
+
+                    if (ident.declaration.storageLocation == "storage") {
+                        ident.scope = "storageRef"; // is a storage reference; may be treated as statevar
+                    }
+
+                } else if (current_contract.stateVars[ident.name]) {
+                    // statevar
+                    ident.scope = "stateVar";
+                    ident.declaration = current_contract.stateVars[ident.name];
+                } else if (current_contract.inherited_names[ident.name] && current_contract.inherited_names[ident.name] != current_contract) {
+                    // inherited
+                    // inaccurate first check. needs to be resolved after parsing all files
+                    ident.scope = "inheritedName";
+                    ident.declaration = current_contract.inherited_names[ident.name];
+                } else {
+                    // unclear scope, likely inherited
+                    // normal identifier or inconclusive
+                }
+
                 current_function.identifiers.push(__node);
             },
             AssemblyCall(__node) {
@@ -855,8 +1007,9 @@ class FunctionDef {
         return undefined;
     }
 
-    getExternalCalls() {
-        return this.calls.filter(c => c.callType == "external");
+    getExternalCalls(criteria) {
+        
+        return this.calls.filter(c => criteria ? criteria(c) : c.callType == "external");
     }
 }
 
