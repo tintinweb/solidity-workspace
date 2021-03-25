@@ -34,18 +34,20 @@ class Workspace {
         this._runningTasks = [];
     }
 
-    async add(fpath, options) { // options = {skipExisting, content}
+    async add(fpath, options) { // options = {skipExistingPath, content}
         options = options || {};
         let prom = new Promise(async (resolve, reject) => {
             var sourceUnit;
 
             fpath = path.resolve(fpath); //always use abspath
-            if (options.skipExisting && this.sourceUnits[fpath]) {
+
+            // avoid parsing files multiple times when subparsing imports; normally not used. lib will automatically return cached sourceUnits if available (see CacheHit)
+            if (options.skipExistingPath && this.sourceUnits[fpath]) {
                 return resolve(this.sourceUnits[fpath]);
             }
-
+            
             try {
-                // good path
+                // good path; "fromSource()" will auto. check. internal cache to avoid parsing the same file multiple times
                 sourceUnit = new SourceUnit(this);
                 if (options.content) { // take content instead of reading it from file
                     sourceUnit.fromSource(options.content);
@@ -73,7 +75,7 @@ class Workspace {
             this.sourceUnits[fpath] = sourceUnit;
 
             if (this.options.parseImports) {
-                await sourceUnit._fsFindImports().forEach(importPath => this.add(importPath, { skipExisting: true }));
+                await sourceUnit._fsFindImports().forEach(importPath => this.add(importPath, { skipExistingPath: true })); // avoid race when parsing the same imports
             }
 
             return resolve(sourceUnit);
@@ -190,25 +192,20 @@ class SourceUnit {
     }
 
     fromFile(fpath) {
-
-        if (!fs.existsSync(fpath)) {
-            throw Error(`File '${fpath}' does not exist.`);
-        }
-        this.filePath = path.resolve(fpath);
-        console.error(`→ fromFile(): ${this.filePath}`);
-
-        let content = fs.readFileSync(this.filePath).toString('utf-8');
+        const {filePath, content} = SourceUnit.getFileContent(fpath);  // returns {fpath, content}
+        this.filePath = filePath;
+        console.log(`→ fromFile(): ${this.filePath}`);
         this.fromSource(content);
         return this;
     }
 
     fromSource(content) {
-        this.hash = crypto.createHash('sha1').update(content).digest('hex');
-        console.error(`→ fromSource(): hash=${this.hash}`);
+        this.hash = SourceUnit.getHash(content);
+        console.log(`→ fromSource(): hash=${this.hash}`);
 
         /** cache-lookup first */
         if (this.workspace.sourceUnitsCache[this.hash]) {
-            console.error('→ fromSource(): cache hit!');
+            console.log('→ fromSource(): cache hit!');
             throw new CacheHit(this.workspace.sourceUnitsCache[this.hash]);
         }
 
@@ -224,7 +221,7 @@ class SourceUnit {
     }
 
     parseAst(input) {
-        console.error(" * parseAst()");
+        console.log(" * parseAst()");
         this.ast = parser.parse(input, { loc: true, tolerant: true });
 
         if (typeof this.ast === "undefined") {
@@ -283,6 +280,25 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
 
     }
 
+    static getFileContent(fpath) {
+        if (!fs.existsSync(fpath)) {
+            throw Error(`File '${fpath}' does not exist.`);
+        }
+        const filePath = path.resolve(fpath);
+        const content = fs.readFileSync(filePath).toString('utf-8');
+        return {filePath, content};
+    }
+
+    // mainly used to get the filehash while "half-preparing" the source-unit object
+    static getFileHash(fpath) {
+        const {_, content} = SourceUnit.getFileContent(fpath);
+        return SourceUnit.getHash(content);
+    }
+
+    static getHash(content) {
+        return crypto.createHash('sha1').update(content).digest('hex');
+    }
+
     _fsFindImportsRecursive() {
         let imports = this._fsFindImports();
         imports = imports.concat(imports.map(fspath => this.workspace.get(fspath)._fsFindImportsRecursive()).flat(1));
@@ -291,7 +307,7 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
 
     _fsFindImports() {
         /** parse imports */
-        console.error("  * parseImports()");
+        console.log("  * parseImports()");
         let result = [];
         let sourceUnit = this;
 
@@ -347,7 +363,7 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
     }
 
     _resolveIdentifiers() {
-        console.error("  * _resolveIdentifiers()");
+        console.log("  * _resolveIdentifiers()");
         /*** resolve identifier scope */
         for (var contract in this.contracts) {
             for (var func of this.contracts[contract].functions) {

@@ -56,6 +56,13 @@ function isLowerCase(str) {
 }
 
 const parserHelpers = {
+  getAstNodeName: node => {
+    if(!node){
+        return "";
+    }
+    return node.name || node.memberName || (node.typeName && node.typeName.name)
+  },
+  /** typechecker */
   isRegularFunctionCall: node => {
     const expr = node.expression;
     // @TODO: replace lowercase for better filtering
