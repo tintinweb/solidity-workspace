@@ -239,7 +239,7 @@ class Workspace {
                         // c._helper contains the contract object. let's find the corresponding contracts
                         let deps = c._helper.contract.linearizedDependencies;
                         const targetVarName = c._node.expression.expression.name;
-                        let declaration = deps.find(depContract => depContract.stateVars[targetVarName]);
+                        let declaration = deps.find(depContract => typeof depContract==="object" && depContract.stateVars[targetVarName]);
                         if(declaration){
                             c.declaration = declaration.stateVars[targetVarName];
                             c.callType = "external";  //update to external call
@@ -443,7 +443,7 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
         console.log("  * _resolveIdentifiers()");
         /*** resolve identifier scope */
         for (var contract in this.contracts) {
-            for (var func of this.contracts[contract].functions) {
+            for (var func of Object.values(this.contracts[contract].functions).concat(Object.values(this.contracts[contract].modifiers))) {
                 func.identifiers.forEach(identifier => {
                     identifier.declarations = {
                         local: [],

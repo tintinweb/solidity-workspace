@@ -60,7 +60,7 @@ const parserHelpers = {
     if(!node){
         return "";
     }
-    return node.name || node.memberName || (node.typeName && node.typeName.name)
+    return node.name || node.memberName || (node.typeName && node.typeName.name) || "";
   },
   /** typechecker */
   isRegularFunctionCall: node => {
