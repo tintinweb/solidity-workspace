@@ -41,7 +41,7 @@ class Workspace {
         // check if there's a running task for that source unit already
         let maybeTasks = this._runningTasks.find(t => t.meta===fpath);
         if (maybeTasks){
-            return maybeTasks; // skip adding another job for this file
+            return maybeTasks.promise; // skip adding another job for this file
         }
 
         let promise = new Promise(async (resolve, reject) => {
@@ -66,18 +66,25 @@ class Workspace {
                 this.sourceUnitsCache[sourceUnit.hash] = sourceUnit;
 
             } catch (e) {
-                if (e instanceof parser.ParserError) {
+                if (e instanceof CacheHit) {
+                // duplicate source unit (or dbl parse)
+                // 
+                sourceUnit = e.sourceUnit.clone(); //clone the object, override the path
+                sourceUnit.filePath = fpath;
+                cacheHit = true;
+                /*
+                } else if (e instanceof parser.ParserError) {
                     //unable to parse
                     console.error(e);
                     //fallthrough: update SourceUnit object to empty object.
-                } else if (e instanceof CacheHit) {
-                    // duplicate source unit (or dbl parse)
-                    // 
-                    sourceUnit = e.sourceUnit.clone(); //clone the object, override the path
-                    sourceUnit.filePath = fpath;
-                    cacheHit = true;
+                
+                } else if (e instanceof TypeError) {
+                    //unable to parse; parser error
+                    console.error(e);
+                */
                 } else {
-                    throw e;
+                    console.error(fpath);
+                    return reject(e);
                 }
             }
             this.sourceUnits[fpath] = sourceUnit;
@@ -94,10 +101,10 @@ class Workspace {
 
     async withParserReady() {
         let hardStop = Date.now() + 5*1000; // exit loop if stuck for more than 5 seconds
-        let emptyPromise = false;
+        let emptyPromise = !this._runningTasks.length;
 
         while(this._runningTasks.length!==0 && Date.now()<hardStop){
-            let values = await Promise.all(this._runningTasks.map(t => t.promise));
+            let values = await Promise.allSettled(this._runningTasks.map(t => t.promise));
             if(values.length===0){
                 emptyPromise = true;
                 break;
@@ -105,10 +112,10 @@ class Workspace {
             this._runningTasks = this._runningTasks.filter(p => !values.some(v => p.meta === v.filePath));
         }
         if(emptyPromise){
-            return;
+            return emptyPromise;
         }
         this.update();
-        return;
+        return emptyPromise;
     }
 
     update() {
