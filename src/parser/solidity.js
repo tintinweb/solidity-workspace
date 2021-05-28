@@ -83,7 +83,6 @@ class Workspace {
                     console.error(e);
                 */
                 } else {
-                    console.error(fpath);
                     return reject(e);
                 }
             }
@@ -101,21 +100,22 @@ class Workspace {
 
     async withParserReady() {
         let hardStop = Date.now() + 5*1000; // exit loop if stuck for more than 5 seconds
-        let emptyPromise = !this._runningTasks.length;
+        let finishedPromises = []
 
         while(this._runningTasks.length!==0 && Date.now()<hardStop){
             let values = await Promise.allSettled(this._runningTasks.map(t => t.promise));
             if(values.length===0){
-                emptyPromise = true;
                 break;
             }
-            this._runningTasks = this._runningTasks.filter(p => !values.some(v => p.meta === v.filePath));
+            finishedPromises = finishedPromises.concat(values);
+            values = values.filter(v => v.value); // remove rejected promises, they dont return a value
+            this._runningTasks = this._runningTasks.filter(p => !values.some(v => p.meta === v.value.filePath));
         }
-        if(emptyPromise){
-            return emptyPromise;
+        if(finishedPromises.length===0){
+            return finishedPromises;
         }
         this.update();
-        return emptyPromise;
+        return finishedPromises;
     }
 
     update() {
