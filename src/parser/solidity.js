@@ -89,7 +89,7 @@ class Workspace {
             this.sourceUnits[fpath] = sourceUnit;
 
             if (!cacheHit && this.options.parseImports) { //avoid parsing imports for cacheHits
-                await sourceUnit._fsFindImports().forEach(importPath => this.add(importPath, { skipExistingPath: true })); // avoid race when parsing the same imports
+                await sourceUnit._fsFindImports().forEach(importPath => this.add(importPath, { skipExistingPath: true }).catch(e => {console.error(importPath); console.error(e)})); // avoid race when parsing the same imports
             }
 
             return resolve(sourceUnit);
