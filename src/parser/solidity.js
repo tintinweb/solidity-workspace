@@ -89,7 +89,11 @@ class Workspace {
             this.sourceUnits[fpath] = sourceUnit;
 
             if (!cacheHit && this.options.parseImports) { //avoid parsing imports for cacheHits
-                await sourceUnit._fsFindImports().forEach(importPath => this.add(importPath, { skipExistingPath: true }).catch(e => {console.error(importPath); console.error(e)})); // avoid race when parsing the same imports
+                try {
+                    await sourceUnit._fsFindImports().forEach(importPath => this.add(importPath, { skipExistingPath: true }).catch(e => {console.error(importPath); console.error(e)})); // avoid race when parsing the same imports
+                } catch (e) {
+                    console.error(e);
+                }
             }
 
             return resolve(sourceUnit);
@@ -692,7 +696,6 @@ class FunctionDef {
             });
         }
 
-
         /**** body declarations */
         parser.visit(_node.body, {
             VariableDeclaration(__node) {
@@ -928,9 +931,10 @@ class FunctionDef {
             }
             // ignore throw, require, etc. for now
         });
+        
         /**** all identifier */
         /**** body declarations */
-        parser.visit(_node, {
+        parser.visit({body:_node.body, modifier:_node.modifiers, type:_node.type}, {
             //resolve scope
             // check if defined in 
             //
