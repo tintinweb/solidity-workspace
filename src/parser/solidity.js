@@ -1011,7 +1011,7 @@ class FunctionDef {
 
         /**** all identifier */
         /**** body declarations */
-        parser.visit(_node, {
+        parser.visit(_node.body, {
             //resolve scope
             // check if defined in 
             //
