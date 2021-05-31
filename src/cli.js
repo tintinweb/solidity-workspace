@@ -10,6 +10,22 @@ const path = require("path");
 const { Workspace } = require('./index');
 let ws = new Workspace();
 
+function toJSON(start){
+    var cache = [];
+    let out = JSON.stringify(start, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+        // Duplicate reference found, discard key
+        if (cache.includes(value)) return;
+
+        // Store value in our collection
+        cache.push(value);
+    }
+    return value;
+    });
+    cache = null; // Enable garbage collection
+    return out;
+}
+
 function cmdFlatten(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
@@ -78,6 +94,25 @@ function cmdStats(argv) {
     });
 }
 
+function cmdParse(argv) {
+    argv.files.forEach(f => {
+        if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
+            // add files to virtual workspace
+            ws.add(f);
+        }
+    });
+    ws.withParserReady().then(() => {
+        for(let su of Object.values(ws.sourceUnits)){
+            if(argv.json){
+                console.log(toJSON(su.ast));
+            } else {
+                console.log(su.ast);
+            }
+            
+        }
+    });
+}
+
 require('yargs') // eslint-disable-line
     .usage('$0 <cmd> [args]')
     .command('flatten <files..>', 'show file contracts structure.', (yargs) => {
@@ -117,6 +152,20 @@ require('yargs') // eslint-disable-line
     }, (argv) => {
         cmdStats(argv);
     })
+    .command('parse <files..>', 'print parsed objects', (yargs) => {
+        yargs
+            .positional('files', {
+                describe: 'files to analyze',
+                type: 'string'
+            })
+            .option('j', {
+                alias: 'json',
+                type: 'boolean',
+                default: false,
+            });
+    }, (argv) => {
+        cmdParse(argv);
+    })
     .help()
     .alias('h', 'help')
     .version()
@@ -129,21 +178,4 @@ process.argv.forEach(f => {
         // add files to virtual workspace
         ws.add(f);
     }
-});
-// output
-//console.log(ws); //show complete workspace
-ws.withParserReady().then(() => {
-    //ws.sourceUnitsCache = {}; //remove the noise
-
-    ws.find(sourceUnit => sourceUnit.contracts["Reserve"]).then(results => {
-        //console.error(results[0].contracts.Reserve.functions.null.identifiers);
-    });
-    ws.find(sourceUnit => sourceUnit.contracts["PeriodicPrizeStrategy"]).then(results => {
-        //console.error(results[0].contracts.PeriodicPrizeStrategy.getExternalCalls());
-        console.error(results[0].getExternalCalls());
-        //console.log(results[0].flatten());
-    });
-
-    //console.log(ws.get("/Users/tintin/workspace/solidity/pooltogether-fortools/code/loot-box/contracts/test/ERC777Mintable.sol"))
-
 });

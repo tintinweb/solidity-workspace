@@ -311,6 +311,10 @@ class SourceUnit {
         this.hash = undefined;
     }
 
+    toJSON(){
+        return this.ast;
+    }
+
     clone() {
         return Object.assign(new SourceUnit(this.workspace), this);
     }
@@ -606,6 +610,10 @@ class Contract {
         this._processAst(node);
     }
 
+    toJSON(){
+        return this._node;
+    }
+
     _processAst(node) {
 
         var current_function = null;
@@ -708,6 +716,10 @@ class FunctionDef {
         this.assemblyFunctions = {};  // list of assembly functions
 
         this._processAst(_node);
+    }
+
+    toJSON(){
+        return this._node;
     }
 
     _processAst(_node) {

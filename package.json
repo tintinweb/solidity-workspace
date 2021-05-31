@@ -4,7 +4,7 @@
   "description": "Turn solidity source code into AST objects with easy access to contracts, functions, ...",
   "main": "src/index.js",
   "scripts": {
-    "test": "node src/cli.js examples/*.sol"
+    "test": "node --trace-warnings src/cli.js examples/*.sol"
   },
   "author": "tintinweb",
   "license": "MIT",
