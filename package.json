@@ -1,5 +1,5 @@
 {
-  "name": "solidity-parser-object",
+  "name": "solidity-workspace",
   "version": "0.1.1",
   "description": "Turn solidity source code into AST objects with easy access to contracts, functions, ...",
   "main": "src/index.js",
@@ -9,7 +9,7 @@
   "author": "tintinweb",
   "license": "MIT",
   "dependencies": {
-    "@solidity-parser/parser": "^0.13.0",
+    "@solidity-parser/parser": "^0.13.2",
     "c3-linearization": "^0.3.0",
     "keccak": "^3.0.1",
     "yargs": "^17.0.1"
