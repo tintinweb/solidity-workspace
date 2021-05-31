@@ -254,7 +254,7 @@ class Workspace {
                             if (found.length){
                                 // we have found a LIBRARY contract.
                                 // check if the contract exports our function. --> likely, not an extcall ELSE extcall
-                                functionImplementationFound = !!found[0][typename].names[c.name];
+                                functionImplementationFound = !!(found[0][typename] && found[0][typename].name && found[0][typename].names[c.name]);
                                 if(functionImplementationFound){
                                     break;
                                 }
@@ -846,7 +846,7 @@ class FunctionDef {
                                     if (found.length){
                                         // but we have found a LIBRARY contract.
                                         // check if the contract exports our function. --> likely, not an extcall ELSE extcall
-                                        functionImplementationFound = !!found[0][typename].names[c.name];
+                                        functionImplementationFound = !!(found[0][typename] && found[0][typename].name && found[0][typename].names[current_funccall.name]);
                                         if(functionImplementationFound){
                                             break;
                                         }
