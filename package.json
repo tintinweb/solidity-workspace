@@ -3,8 +3,12 @@
   "version": "0.1.1",
   "description": "Turn solidity source code into AST objects with easy access to contracts, functions, ...",
   "main": "src/index.js",
+  "bin": {
+    "solidity-workspace": "src/cli.js"
+  },
   "scripts": {
-    "test": "node --trace-warnings src/cli.js examples/*.sol"
+    "test": "node --trace-warnings src/cli.js examples/*.sol",
+    "main": "node src/cli.js"
   },
   "author": "tintinweb",
   "license": "MIT",

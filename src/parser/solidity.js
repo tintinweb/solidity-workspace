@@ -108,13 +108,14 @@ class Workspace {
         let finishedPromises = []
 
         while (this._runningTasks.length !== 0 && Date.now() < hardStop) {
-            let values = await Promise.allSettled(this._runningTasks.map(t => t.promise));
+            let selectedTasks = this._runningTasks;
+
+            let values = await Promise.allSettled(selectedTasks.map(t => t.promise));
             if (values.length === 0) {
                 break;
             }
             finishedPromises = finishedPromises.concat(values);
-            values = values.filter(v => v.value); // remove rejected promises, they dont return a value
-            this._runningTasks = this._runningTasks.filter(p => !values.some(v => p.meta === v.value.filePath));
+            this._runningTasks = this._runningTasks.filter(t => !selectedTasks.includes(t))
         }
         if (finishedPromises.length === 0) {
             return finishedPromises;

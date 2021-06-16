@@ -1,4 +1,6 @@
+#!/usr/bin/env node
 'use strict';
+const { fstat, writeFileSync } = require("fs");
 /** 
  * @author github.com/tintinweb
  * @license MIT
@@ -37,12 +39,20 @@ function cmdFlatten(argv) {
         if (argv.t) {
             ws.find(sourceUnit => sourceUnit.contracts[argv.t]).then(results => {
                 results.forEach(r => {
-                    console.log(r.flatten());
+                    let flat = r.flatten();
+                    console.log(flat);
+                    if(argv.output) {
+                        writeFileSync(argv.output, flat);
+                    }
                 });
             });
         } else {
             argv.files.forEach(f => {
-                console.log(ws.get(path.resolve(f)).flatten());
+                let flat = ws.get(path.resolve(f)).flatten();
+                console.log(flat);
+                if(argv.output) {
+                    writeFileSync(argv.output, flat);
+                }
             });
         }
     });
@@ -125,6 +135,11 @@ require('yargs') // eslint-disable-line
                 alias: 'targetContract',
                 type: 'string',
                 default: undefined,
+            })
+            .option('o', {
+                alias: 'output',
+                type: 'string',
+                default: undefined,
             });
     }, (argv) => {
         cmdFlatten(argv);
@@ -172,10 +187,3 @@ require('yargs') // eslint-disable-line
     .alias('v', 'version')
     .argv;
 
-
-process.argv.forEach(f => {
-    if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
-        // add files to virtual workspace
-        ws.add(f);
-    }
-});
