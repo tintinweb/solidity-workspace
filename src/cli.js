@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-const { fstat, writeFileSync } = require("fs");
+const { writeFileSync } = require("fs");
 /** 
  * @author github.com/tintinweb
  * @license MIT

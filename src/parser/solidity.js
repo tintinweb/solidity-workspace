@@ -13,7 +13,6 @@ const parser = require('@solidity-parser/parser');
 
 const { parserHelpers } = require("./parserHelpers");
 const { ParserError, CacheHit } = require("./exceptions");
-const { isContext } = require('vm');
 
 
 function getExpressionIdentifier(node) {
