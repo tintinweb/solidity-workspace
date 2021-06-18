@@ -32,7 +32,9 @@ function cmdFlatten(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            ws.add(f);
+            ws.add(f).catch( e => {
+                console.error(`ERROR: failed to parse: ${f} - ${e}`);
+            });
         }
     });
     ws.withParserReady().then(() => {
@@ -48,7 +50,12 @@ function cmdFlatten(argv) {
             });
         } else {
             argv.files.forEach(f => {
-                let flat = ws.get(path.resolve(f)).flatten();
+                let sourceUnit = ws.get(path.resolve(f));
+                if(!sourceUnit){
+                    console.error(`ERROR: could not find parsed sourceUnit for file ${f}`)
+                    return;
+                }
+                let flat = sourceUnit.flatten()
                 console.log(flat);
                 if(argv.output) {
                     writeFileSync(argv.output, flat);
@@ -62,7 +69,9 @@ function cmdInheritance(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            ws.add(f);
+            ws.add(f).catch( e => {
+                console.error(`ERROR: failed to parse: ${f} - ${e}`);
+            });
         }
     });
     ws.withParserReady().then(() => {
@@ -92,7 +101,9 @@ function cmdStats(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            ws.add(f);
+            ws.add(f).catch( e => {
+                console.error(`ERROR: failed to parse: ${f} - ${e}`);
+            });
         }
     });
     ws.withParserReady().then(() => {
@@ -108,7 +119,9 @@ function cmdParse(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            ws.add(f);
+            ws.add(f).catch( e => {
+                console.error(`ERROR: failed to parse: ${f} - ${e}`);
+            });
         }
     });
     ws.withParserReady().then(() => {
