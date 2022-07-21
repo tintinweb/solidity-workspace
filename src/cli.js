@@ -89,8 +89,12 @@ function cmdInheritance(argv) {
             });
         } else {
             argv.files.forEach(f => {
-                Object.entries(ws.get(path.resolve(f)).contracts).forEach(([contractName, contract]) => {
-                    console.log(`${contractName}: \n  ↖${contract.linearizedDependencies.join("\n  ↖")}`);
+                let wsu = ws.get(path.resolve(f));
+                if (!wsu){
+                    return;
+                }
+                Object.entries(wsu.contracts).forEach(([contractName, contract]) => {
+                    console.log(`${contractName}: \n  ↖${contract.linearizedDependencies.map(cobj => cobj.name).join("\n  ↖")}`);
                 });
             });
         }
