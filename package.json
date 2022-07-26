@@ -2,6 +2,10 @@
   "name": "solidity-workspace",
   "version": "0.1.6",
   "description": "Turn solidity source code into AST objects with easy access to contracts, functions, ...",
+  "keywords": [
+    "solidity",
+    "parser"
+  ],
   "main": "src/index.js",
   "bin": {
     "solidity-workspace": "src/cli.js"
@@ -10,7 +14,14 @@
     "test": "node --trace-warnings src/cli.js examples/*.sol",
     "main": "node src/cli.js"
   },
-  "author": "tintinweb",
+  "author": {
+    "name": "tintinweb",
+    "url": "https://github.com/tintinweb/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tintinweb/solidity-workspace.git"
+  },
   "license": "MIT",
   "dependencies": {
     "@solidity-parser/parser": "^0.14.3",
