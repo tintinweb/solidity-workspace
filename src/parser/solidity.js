@@ -726,11 +726,6 @@ class FunctionDef {
         let current_function = this;
         let current_contract = this.parent;
 
-        parser.visit(_node.modifiers, {
-            ModifierInvocation: function (__node) {
-                current_function.modifiers[__node.name] = __node;
-            }
-        });
         // parse function body to get all function scope params.
         // first get declarations
         parser.visit(_node.parameters, {
@@ -1069,6 +1064,28 @@ class FunctionDef {
                     inFunction: current_function
                 }
                 current_function.identifiers.push(__node);
+            }
+        });
+
+        parser.visit(_node.modifiers, {
+            ModifierInvocation: function (__node) {
+                current_function.modifiers[__node.name] = __node;
+
+                //subparse arguments as identifiers
+                parser.visit(__node.arguments, {
+                    Identifier: function(nodeModArgIdent){
+                        if (!current_function) {
+                            return;
+                        }
+                        let ident = nodeModArgIdent;
+                        ident.extra = {
+                            inFunction: current_function,
+                            scope: "super",
+                            declaration: current_function.arguments[ident.name]
+                        }
+                        current_function.identifiers.push(ident);
+                    }
+                });
             }
         });
     }
