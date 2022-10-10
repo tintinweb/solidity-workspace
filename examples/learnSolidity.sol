@@ -39,7 +39,9 @@ contract Ballot {
     Test[] public testArray;
 
     /// Create a new ballot to choose one of `proposalNames`.
-    constructor(bytes32[] memory proposalNames, address mjam, Test mjamTest) public {
+    constructor(bytes32[] memory proposalNames, address mjam, Test mjamTest) public 
+        ParentContract(mjam)
+    {
         chairperson = msg.sender;
         voters[chairperson].weight = 1;
 
