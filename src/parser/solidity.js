@@ -27,9 +27,11 @@ function getExpressionIdentifier(node) {
 class Workspace {
     constructor(basedirs, options) {
         this.basedirs = basedirs || [];
-        this.options = options || { parseImports: true, resolveIdentifiers: true }; //parseImports
+        this.options = options || { parseImports: true, resolveIdentifiers: true, resolveInheritedStructs: true }; 
         this.sourceUnits = {};  // path -> sourceUnit
         this.sourceUnitsCache = {}; // hash -> sourceUnit
+        this.lastParsedSourceUnit = {}; //path -> lastSourceUnitParsed
+        this.sourceUnitNametoSourceUnit = {}
 
         this._runningTasks = [];
     }
@@ -62,7 +64,6 @@ class Workspace {
                 } else {
                     sourceUnit = sourceUnit.fromFile(fpath); //options.imports
                 }
-
                 this.sourceUnitsCache[sourceUnit.hash] = sourceUnit;
 
             } catch (e) {
@@ -87,6 +88,7 @@ class Workspace {
                 }
             }
             this.sourceUnits[fpath] = sourceUnit;
+            this.sourceUnitNametoSourceUnit[path.basename(fpath)] = sourceUnit;
 
             if (!cacheHit && this.options.parseImports) { //avoid parsing imports for cacheHits
                 try {
@@ -131,6 +133,22 @@ class Workspace {
     /** GETTER */
     get(key) {
         return this.sourceUnits[key];
+    }
+
+    async getSourceUnitByPath(path) {
+        return new Promise((resolve, reject) => {
+            const su = this.sourceUnits[path]
+            if (su) {
+                resolve(su)
+            } else {
+                const runningTask = this._runningTasks.find(t => t.meta === path)
+                if (runningTask) {
+                    runningTask.promise.then(res => resolve(res)).catch(err => reject(err));
+                } else {
+                    reject('no source unit available for this path')
+                }
+            } 
+        })
     }
 
     async find(criteria) {
@@ -211,19 +229,73 @@ class Workspace {
             return acc;
         }, {});
 
+
+        if (this.options.resolveInheritedStructs) {
+            //resolve imported structs for each source unit
+            //note: we only resolve imports for source units defined outside contracts. 
+            this._propagateImportStructs()
+        }
+
         Object.entries(linearize(dependencyMap, { reverse: true })).forEach(([contractName, linearizedDeps]) => {
             if (allContracts[contractName]) { //ignore contracts we dont know yet (missing import?)
-                allContracts[contractName].linearizedDependencies = linearizedDeps.map(contractName => {
-                    let contractObjs = this.findContractsByNameSync(contractName);
-                    if (contractObjs.length > 0) {
-                        let subcontract = contractObjs.pop();
-                        //this._updateInheritedNames(allContracts[contractName], subcontract); //this is a heavy op
-                        return subcontract; //pop one
+                allContracts[contractName].linearizedDependencies = linearizedDeps.filter(depName => depName !== contractName).map(contractName => {
+                    let contractObjs = allContracts[contractName];
+                    if (contractObjs) {
+                        return contractObjs
                     }
                     return contractName; //not found
                 }) || [];
             }
         });
+    }
+
+    _propagateImportStructs() {
+        //build the import graph
+        let importMap = Object.values(this.sourceUnits).reduce((acc, cur) => {
+            acc[path.basename(cur.filePath)] = cur.imports.flatMap(imp => path.basename(imp.path));
+            return acc;
+        }, {});
+
+        //Do a DFS in the graph to pull the inherited structs from imports.
+        //Should not contain cycles (no cyclic imports)
+        //For each S.U., DFS guarantees that we resolve imports from childrens before.
+        const toVisit = Object.keys(importMap)
+        const visited = {}
+        let order = []
+        let idx = 1
+        while (toVisit.length > 0) {
+            //loop through all source units
+            let tmp = toVisit.pop()
+            while (visited[tmp]) {
+                tmp = toVisit.pop()
+            }
+            const stack = [tmp]
+            while(stack.length > 0) {
+                //inner DFS loop
+                const cur = stack.pop()
+                if (importMap[cur])
+                    stack.push(...importMap[cur].filter(v => !visited[v]))
+                if (!visited[cur]) {
+                    //avoid looping if cycles
+                    visited[cur] = idx
+                    idx += 1
+                    order.push(cur);
+                }   
+            }
+            //pull imports for each source unit
+            order.reverse().forEach(suName => {
+                const su = this.sourceUnitNametoSourceUnit[suName]
+                if (su) {
+                importMap[suName].forEach(imp => {
+                    const impSu = this.sourceUnitNametoSourceUnit[imp]
+                    if (impSu) {
+                        Object.assign(su.structs, impSu.structs)
+                    }
+                }) 
+                }
+            });
+            order = []
+        }
     }
 
     _resolveExternalCalls2ndPass() {
@@ -308,6 +380,7 @@ class SourceUnit {
         this.contracts = {};
         this.pragmas = [];
         this.imports = [];
+        this.structs = {}; //structs defined outside contract scope
         this.hash = undefined;
     }
 
@@ -330,7 +403,6 @@ class SourceUnit {
     fromSource(content) {
         this.hash = SourceUnit.getHash(content);
         console.log(`→ fromSource(): hash=${this.hash}`);
-
         /** cache-lookup first */
         let cached = this.workspace.sourceUnitsCache[this.hash];
         if (cached) {
@@ -364,6 +436,7 @@ class SourceUnit {
         parser.visit(this.ast, {
             PragmaDirective(node) { this_sourceUnit.pragmas.push(node); },
             ImportDirective(node) { this_sourceUnit.imports.push(node); },
+            StructDefinition(node, _parent) { if(_parent.type === "SourceUnit") this_sourceUnit.structs[node.name] = node },
             ContractDefinition(node) {
                 this_sourceUnit.contracts[node.name] = new Contract(this_sourceUnit, node);
             },
@@ -488,6 +561,7 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
                 console.error(`[ERR] Import not found: '${imp.path}' referenced in '${sourceUnit.filePath}'`);
             }
         }, this);
+
         return result;
     }
 
@@ -586,6 +660,11 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
     getExternalCalls(criteria) {
         return Object.values(this.contracts).reduce((acc, contract) => acc = acc.concat(contract.getExternalCalls(criteria)), []);
     }
+
+    getAllContractStructs() {
+        return Object.values(this.contracts).reduce((acc, contract) => acc = acc.concat(contract.structs), []);
+    }
+  
 }
 
 class Contract {
@@ -604,6 +683,7 @@ class Contract {
         this.constructor = null;  // ...
         this.events = [];  // event declarations; can be overloaded
         this.inherited_names = {};  // all names inherited from other contracts
+        this.inherited_structs = {..._parent.structs}; // structs inherited from source unit.
         this.names = {};   // all names in current contract (methods, events, structs, ...)
         this.usingFor = {}; // using XX for YY
 
@@ -705,6 +785,7 @@ class FunctionDef {
         this._node = _node;
         this._type = _type || "function";
         this.name = _node.name;
+        this.visibility = _node?.visibility //visibility
         this.modifiers = {};   // quick access to modifiers
         this.arguments = {};  // declarations: quick access to argument list
         this.returns = {};  // declarations: quick access to return argument list
