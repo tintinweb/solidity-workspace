@@ -237,10 +237,11 @@ class Workspace {
     }
 
     if (subcontract._node.kind === 'interface') {
-      //only consider structs
+      //only consider structs and enums
       for (let _var in subcontract.structs) {
         contract.inherited_names[_var] = subcontract;
         contract.inherited_structs[_var] = subcontract.structs[_var];
+        contract.inherited_enums[_var] = subcontract.enums[_var];
       }
       return; //skip other inherited names from interfaces
     }
