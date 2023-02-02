@@ -51,7 +51,7 @@ class Workspace {
     // options = {skipExistingPath, content}
     options = options || {};
     fpath = path.resolve(fpath); //always use abspath
-    if (!fpath) return
+    if (!fpath) return;
     // check if there's a running task for that source unit already
     let maybeTasks = this._runningTasks.find((t) => t.meta === fpath);
     if (maybeTasks) {
@@ -61,9 +61,10 @@ class Workspace {
     const promise = new Promise(async (resolve, reject) => {
       var sourceUnit;
       let cacheHit;
+      let samePath;
 
       // avoid parsing files multiple times when subparsing imports; normally not used. lib will automatically return cached sourceUnits if available (see CacheHit)
-      const inCache = this.sourceUnits[fpath]
+      const inCache = this.sourceUnits[fpath];
       if (options.skipExistingPath && inCache) {
         return resolve(inCache);
       }
@@ -80,16 +81,17 @@ class Workspace {
       } catch (e) {
         if (e instanceof CacheHit) {
           // duplicate source unit (or dbl parse)
-          console.log('cache hit')
-          cacheHit = true
+          console.log('cache hit');
+          cacheHit = true;
           if (fpath && e.sourceUnit.filePath !== fpath) {
             //same source unit hash, but other path
-            console.log('same source unit, other fpath')
+            console.log('same source unit, other fpath');
             sourceUnit = e.sourceUnit.clone(); //clone the object, override the path
             sourceUnit.filePath = fpath;
           } else {
             //same hash, same path
-            sourceUnit = e.sourceUnit
+            samePath = true;
+            sourceUnit = e.sourceUnit;
           }
           /*
                     } else if (e instanceof parser.ParserError) {
@@ -106,9 +108,13 @@ class Workspace {
         }
       }
 
-      this.sourceUnitsCache.set(sourceUnit.hash, sourceUnit);
-      this.sourceUnits[fpath] = sourceUnit;
-      this.sourceUnitNametoSourceUnit[path.basename(fpath)] = sourceUnit;
+      this.sourceUnitsCache.set(sourceUnit.hash, sourceUnit); //refresh the key
+
+      if (!samePath) {
+        //if we have a new source unit, store it.
+        this.sourceUnits[fpath] = sourceUnit;
+        this.sourceUnitNametoSourceUnit[path.basename(fpath)] = sourceUnit;
+      }
 
       if (!cacheHit && this.options.parseImports) {
         //avoid parsing imports for cacheHits
@@ -126,6 +132,7 @@ class Workspace {
 
       return resolve(sourceUnit);
     });
+
     this._runningTasks.push({
       meta: fpath,
       promise: withTimeout(PARSER_TIMEOUT, promise),
@@ -261,6 +268,7 @@ class Workspace {
     for (let _var in subcontract.enums) {
       if (subcontract.enums[_var].visibility != 'private') {
         contract.inherited_names[_var] = subcontract;
+        contract.inherited_enums[_var] = subcontract.enums[_var];
       }
     }
     for (let _var in subcontract.structs) {
@@ -287,9 +295,10 @@ class Workspace {
     }, {});
 
     if (this.options.resolveInheritance) {
-      //resolve imported structs for each source unit
-      //note: we only resolve imports for source units defined outside contracts.
-      this._propagateImportStructs();
+      //resolve imported structs and enums for each source unit
+      //note: at this point, we only resolve imports for source units defined outside contracts.
+      //below, we will resolve imports for vars defined inside contracts.
+      this._propagateImportedVars();
     }
 
     Object.entries(linearize(dependencyMap, { reverse: true })).forEach(
@@ -314,13 +323,14 @@ class Workspace {
                 }
                 return depContractName; //not found
               }) || [];
-          contractObj.resolvedInheritance = contractObj.resolvedInheritance || resolveInheritance; //only resolve inheritance once
+          contractObj.resolvedInheritance =
+            contractObj.resolvedInheritance || resolveInheritance; //only resolve inheritance once
         }
       }
     );
   }
 
-  _propagateImportStructs() {
+  _propagateImportedVars() {
     //build the import graph
     let importMap = Object.values(this.sourceUnits).reduce((acc, cur) => {
       acc[path.basename(cur.filePath)] = cur.imports.flatMap((imp) =>
@@ -363,6 +373,7 @@ class Workspace {
             const impSu = this.sourceUnitNametoSourceUnit[imp];
             if (impSu) {
               Object.assign(su.structs, impSu.structs);
+              Object.assign(su.enums, impSu.enums);
             }
           });
         }
@@ -478,6 +489,7 @@ class SourceUnit {
     this.pragmas = [];
     this.imports = [];
     this.structs = {}; //structs defined outside contract scope
+    this.enums = {}; //enums defined outside contract scope
     this.hash = undefined;
   }
 
@@ -540,6 +552,9 @@ class SourceUnit {
       StructDefinition(node, _parent) {
         if (_parent.type === 'SourceUnit')
           this_sourceUnit.structs[node.name] = node;
+      },
+      EnumDefinition(node, _parent) {
+        this_sourceUnit.enums[node.name] = node; 
       },
       ContractDefinition(node) {
         this_sourceUnit.contracts[node.name] = new Contract(
@@ -839,6 +854,7 @@ class Contract {
     this.events = []; // event declarations; can be overloaded
     this.inherited_names = {}; // all names inherited from other contracts
     this.inherited_structs = { ..._parent.structs }; // structs inherited from source unit.
+    this.inherited_enums = {..._parent.enums}; //enums inherited from source unit.
     this.resolvedInheritance = false; //optimization: indicates if we already resolved inherited identifiers
     this.names = {}; // all names in current contract (methods, events, structs, ...)
     this.usingFor = {}; // using XX for YY
