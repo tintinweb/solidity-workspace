@@ -556,7 +556,7 @@ class SourceUnit {
           this_sourceUnit.structs[node.name] = node;
       },
       EnumDefinition(node, _parent) {
-        this_sourceUnit.enums[node.name] = node; 
+        this_sourceUnit.enums[node.name] = node;
       },
       ContractDefinition(node) {
         this_sourceUnit.contracts[node.name] = new Contract(
@@ -732,7 +732,7 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
             local: [],
             global:
               typeof this.contracts[contract].stateVars[identifier.name] ==
-              'undefined'
+                'undefined'
                 ? []
                 : this.contracts[contract].stateVars[identifier.name],
           };
@@ -862,7 +862,7 @@ class Contract {
     this.events = []; // event declarations; can be overloaded
     this.inherited_names = {}; // all names inherited from other contracts
     this.inherited_structs = { ..._parent.structs }; // structs inherited from source unit.
-    this.inherited_enums = {..._parent.enums}; //enums inherited from source unit.
+    this.inherited_enums = { ..._parent.enums }; //enums inherited from source unit.
     this.resolvedInheritance = false; //optimization: indicates if we already resolved inherited identifiers
     this.names = {}; // all names in current contract (methods, events, structs, ...)
     this.usingFor = {}; // using XX for YY
@@ -964,15 +964,15 @@ class Contract {
     });
   }
 
-  getFunctionSignatures(){
+  getFunctionSignatures() {
     const results = [];
-    for(let func of Object.values(this.functions)){
+    for (let func of Object.values(this.functions)) {
       // only non constructor/fallback non-internal functions
-      if(!func.name || ['private', 'internal'].includes(func.visibility)) continue; 
-      
+      if (!func.name || ['private', 'internal'].includes(func.visibility)) continue;
+
       try {
         const currSig = {
-          contract:this.name, 
+          contract: this.name,
           ...func.getFunctionSignature()
         };
         results.push(currSig)
@@ -980,9 +980,9 @@ class Contract {
         // likely a Mapping in a public function of a library. skip it.
         // likely Struct lookup failed somehow
         results.push({
-          contract: this.name, 
+          contract: this.name,
           name: func.name,
-          err: e.message, 
+          err: e.message,
         });
       }
     }

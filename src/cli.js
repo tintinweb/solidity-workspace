@@ -12,17 +12,17 @@ const path = require("path");
 const { Workspace } = require('./index');
 let ws = new Workspace();
 
-function toJSON(start){
+function toJSON(start) {
     var cache = [];
     let out = JSON.stringify(start, (key, value) => {
-    if (typeof value === 'object' && value !== null) {
-        // Duplicate reference found, discard key
-        if (cache.includes(value)) return;
+        if (typeof value === 'object' && value !== null) {
+            // Duplicate reference found, discard key
+            if (cache.includes(value)) return;
 
-        // Store value in our collection
-        cache.push(value);
-    }
-    return value;
+            // Store value in our collection
+            cache.push(value);
+        }
+        return value;
     });
     cache = null; // Enable garbage collection
     return out;
@@ -32,7 +32,7 @@ function cmdFlatten(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            ws.add(f).catch( e => {
+            ws.add(f).catch(e => {
                 console.error(`ERROR: failed to parse: ${f} - ${e}`);
             });
         }
@@ -43,7 +43,7 @@ function cmdFlatten(argv) {
                 results.forEach(r => {
                     let flat = r.flatten();
                     console.log(flat);
-                    if(argv.output) {
+                    if (argv.output) {
                         writeFileSync(argv.output, flat);
                     }
                 });
@@ -51,13 +51,13 @@ function cmdFlatten(argv) {
         } else {
             argv.files.forEach(f => {
                 let sourceUnit = ws.get(path.resolve(f));
-                if(!sourceUnit){
+                if (!sourceUnit) {
                     console.error(`ERROR: could not find parsed sourceUnit for file ${f}`)
                     return;
                 }
                 let flat = sourceUnit.flatten()
                 console.log(flat);
-                if(argv.output) {
+                if (argv.output) {
                     writeFileSync(argv.output, flat);
                 }
             });
@@ -69,7 +69,7 @@ function cmdInheritance(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            ws.add(f).catch( e => {
+            ws.add(f).catch(e => {
                 console.error(`ERROR: failed to parse: ${f} - ${e}`);
             });
         }
@@ -90,7 +90,7 @@ function cmdInheritance(argv) {
         } else {
             argv.files.forEach(f => {
                 let wsu = ws.get(path.resolve(f));
-                if (!wsu){
+                if (!wsu) {
                     return;
                 }
                 Object.entries(wsu.contracts).forEach(([contractName, contract]) => {
@@ -105,7 +105,7 @@ function cmdStats(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            ws.add(f).catch( e => {
+            ws.add(f).catch(e => {
                 console.error(`ERROR: failed to parse: ${f} - ${e}`);
             });
         }
@@ -123,31 +123,31 @@ function cmdParse(argv) {
     argv.files.forEach(f => {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            ws.add(f).catch( e => {
+            ws.add(f).catch(e => {
                 console.error(`ERROR: failed to parse: ${f} - ${e}`);
             });
         }
     });
     ws.withParserReady(undefined, true).then(() => {
-        for(let su of Object.values(ws.sourceUnits)){
-            if(argv.json){
+        for (let su of Object.values(ws.sourceUnits)) {
+            if (argv.json) {
                 console.log(toJSON(su.ast));
             } else {
                 console.log(su.ast);
             }
-            
+
         }
     });
 }
 
 function cmdFuncSig(argv) {
-    if(!argv.oneworkspace){
+    if (!argv.oneworkspace) {
         const tasks = [];
-        for(let f of argv.files){
+        for (let f of argv.files) {
             if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
                 // add files to virtual workspace
-                let ws = new Workspace(undefined, {parseImports: false});
-                ws.add(f).catch( e => {
+                let ws = new Workspace(undefined, { parseImports: false });
+                ws.add(f).catch(e => {
                     console.error(`ERROR: failed to parse: ${f} - ${e}`);
                 });
                 tasks.push(ws.withParserReady(undefined, true));
@@ -159,17 +159,17 @@ function cmdFuncSig(argv) {
                 .flat(1)
                 .reduce((res, suprom) => {
                     const sigdata = suprom.value.getAllFunctionSignatures();
-                    for(const sig of sigdata){
-                        if(res.hasOwnProperty('err')) {
+                    for (const sig of sigdata) {
+                        if (res.hasOwnProperty('err')) {
                             errors.push(res);
                             continue; //skip errors
                         }
-                        if(!res.hasOwnProperty(sig.sighash)){
-                            res[sig.sighash]= new Set([sig.signature]);
+                        if (!res.hasOwnProperty(sig.sighash)) {
+                            res[sig.sighash] = new Set([sig.signature]);
                         } else {
                             res[sig.sighash].add(sig.signature);
                         }
-                    }             
+                    }
                     return res;
                 }, {});
             console.log(result);
@@ -181,19 +181,19 @@ function cmdFuncSig(argv) {
         argv.files.forEach(f => {
             if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
                 // add files to virtual workspace
-                ws.add(f).catch( e => {
+                ws.add(f).catch(e => {
                     console.error(`ERROR: failed to parse: ${f} - ${e}`);
                 });
             }
         });
         ws.withParserReady(undefined, true).then(() => {
-    
+
             const result = [];
-    
-            for(let su of Object.values(ws.sourceUnits)){
+
+            for (let su of Object.values(ws.sourceUnits)) {
                 console.log(su.getAllFunctionSignatures())
             }
-            if(argv.json){
+            if (argv.json) {
                 console.log(toJSON(result));
             } else {
                 console.log(result);
