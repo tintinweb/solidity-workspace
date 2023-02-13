@@ -37,7 +37,7 @@ function cmdFlatten(argv) {
             });
         }
     });
-    ws.withParserReady().then(() => {
+    ws.withParserReady(undefined, true).then(() => {
         if (argv.t) {
             ws.find(sourceUnit => sourceUnit.contracts[argv.t]).then(results => {
                 results.forEach(r => {
@@ -74,7 +74,7 @@ function cmdInheritance(argv) {
             });
         }
     });
-    ws.withParserReady().then(() => {
+    ws.withParserReady(undefined, true).then(() => {
         if (argv.t) {
             ws.find(sourceUnit => sourceUnit.contracts[argv.t]).then(results => {
                 results.forEach(r => {
@@ -110,7 +110,7 @@ function cmdStats(argv) {
             });
         }
     });
-    ws.withParserReady().then(() => {
+    ws.withParserReady(undefined, true).then(() => {
         let allContracts = ws.getAllContracts();
 
         console.log(`SourceUnits: ${Object.keys(ws.sourceUnits).length}`);
@@ -128,7 +128,7 @@ function cmdParse(argv) {
             });
         }
     });
-    ws.withParserReady().then(() => {
+    ws.withParserReady(undefined, true).then(() => {
         for(let su of Object.values(ws.sourceUnits)){
             if(argv.json){
                 console.log(toJSON(su.ast));
@@ -138,6 +138,68 @@ function cmdParse(argv) {
             
         }
     });
+}
+
+function cmdFuncSig(argv) {
+    if(!argv.oneworkspace){
+        const tasks = [];
+        for(let f of argv.files){
+            if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
+                // add files to virtual workspace
+                let ws = new Workspace(undefined, {parseImports: false});
+                ws.add(f).catch( e => {
+                    console.error(`ERROR: failed to parse: ${f} - ${e}`);
+                });
+                tasks.push(ws.withParserReady(undefined, true));
+            }
+        }
+        Promise.all(tasks).then(proms => {
+            const errors = [];
+            const result = proms
+                .flat(1)
+                .reduce((res, suprom) => {
+                    const sigdata = suprom.value.getAllFunctionSignatures();
+                    for(const sig of sigdata){
+                        if(res.hasOwnProperty('err')) {
+                            errors.push(res);
+                            continue; //skip errors
+                        }
+                        if(!res.hasOwnProperty(sig.sighash)){
+                            res[sig.sighash]= new Set([sig.signature]);
+                        } else {
+                            res[sig.sighash].add(sig.signature);
+                        }
+                    }             
+                    return res;
+                }, {});
+            console.log(result);
+            console.log(Object.keys(result).length);
+            Object.values(result).filter(v => v.size > 1).forEach(dup => console.log(dup))
+            console.log(errors);
+        });
+    } else {
+        argv.files.forEach(f => {
+            if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
+                // add files to virtual workspace
+                ws.add(f).catch( e => {
+                    console.error(`ERROR: failed to parse: ${f} - ${e}`);
+                });
+            }
+        });
+        ws.withParserReady(undefined, true).then(() => {
+    
+            const result = [];
+    
+            for(let su of Object.values(ws.sourceUnits)){
+                console.log(su.getAllFunctionSignatures())
+            }
+            if(argv.json){
+                console.log(toJSON(result));
+            } else {
+                console.log(result);
+            }
+        });
+    }
 }
 
 require('yargs') // eslint-disable-line
@@ -197,6 +259,25 @@ require('yargs') // eslint-disable-line
             });
     }, (argv) => {
         cmdParse(argv);
+    })
+    .command('funcsigs <files..>', 'print function signatures', (yargs) => {
+        yargs
+            .positional('files', {
+                describe: 'files to analyze',
+                type: 'string'
+            })
+            .option('j', {
+                alias: 'json',
+                type: 'boolean',
+                default: false,
+            })
+            .option('x', {
+                alias: 'oneworkspace',
+                type: 'boolean',
+                default: false,
+            });
+    }, (argv) => {
+        cmdFuncSig(argv);
     })
     .help()
     .alias('h', 'help')
