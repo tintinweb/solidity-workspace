@@ -35,10 +35,11 @@ function getExpressionIdentifier(node) {
 class Workspace {
   constructor(basedirs, options) {
     this.basedirs = basedirs || [];
-    this.options = options || {
+    this.options = {
       parseImports: true,
       resolveIdentifiers: true,
       resolveInheritance: true,
+      ...options
     };
     this.sourceUnits = {}; // su path -> sourceUnit
     this.sourceUnitNametoSourceUnit = {}; //su filename --> sourceUnit
@@ -834,6 +835,12 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
       []
     );
   }
+
+  getAllFunctionSignatures() {
+    return Object.values(this.contracts).map(
+      (contract) => (contract.getFunctionSignatures())
+    ).flat(1);
+  }
 }
 
 class Contract {
@@ -955,6 +962,31 @@ class Contract {
         ? uf.typeName.name == typeName
         : uf.typeName.namePath == typeName;
     });
+  }
+
+  getFunctionSignatures(){
+    const results = [];
+    for(let func of Object.values(this.functions)){
+      // only non constructor/fallback non-internal functions
+      if(!func.name || ['private', 'internal'].includes(func.visibility)) continue; 
+      
+      try {
+        const currSig = {
+          contract:this.name, 
+          ...func.getFunctionSignature()
+        };
+        results.push(currSig)
+      } catch (e) {
+        // likely a Mapping in a public function of a library. skip it.
+        // likely Struct lookup failed somehow
+        results.push({
+          contract: this.name, 
+          name: func.name,
+          err: e.message, 
+        });
+      }
+    }
+    return results;
   }
 }
 
