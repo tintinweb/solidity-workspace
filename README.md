@@ -158,6 +158,9 @@ Unique Contract Names (excluding duplicate contract names): 20
 
 TBD
 
+## 🙏 Contributors
+
+- [@vquelque](https://github.com/vquelque)(#2)
 
 ## 🏆 References
 
