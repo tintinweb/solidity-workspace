@@ -142,6 +142,7 @@ function cmdParse(argv) {
 
 function cmdFuncSig(argv) {
     if (!argv.oneworkspace) {
+        // assume file-by-file import resolving
         const tasks = [];
         for (let f of argv.files) {
             if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
@@ -153,28 +154,39 @@ function cmdFuncSig(argv) {
                 tasks.push(ws.withParserReady(undefined, true));
             }
         }
-        Promise.all(tasks).then(proms => {
+        Promise.allSettled(tasks).then(proms => {
             const errors = [];
-            const result = proms
-                .flat(1)
-                .reduce((res, suprom) => {
-                    const sigdata = suprom.value.getAllFunctionSignatures();
-                    for (const sig of sigdata) {
-                        if (res.hasOwnProperty('err')) {
-                            errors.push(res);
-                            continue; //skip errors
-                        }
-                        if (!res.hasOwnProperty(sig.sighash)) {
-                            res[sig.sighash] = new Set([sig.signature]);
-                        } else {
-                            res[sig.sighash].add(sig.signature);
+
+            const finishedPromises = proms.flat(1).filter(
+                (value) => value.status === 'fulfilled'
+            );
+            const result = finishedPromises
+                .reduce((res, suproms) => {
+                    for (const su of suproms.value) {
+                        if (!su.value) continue; //skip errors
+                        try {
+                            const sigdata = su.value.getAllFunctionSignatures();
+                            for (const sig of sigdata) {
+                                if (sig.hasOwnProperty('err')) {
+                                    errors.push(sig);
+                                    continue; //skip errors
+                                }
+                                if (!res.hasOwnProperty(sig.sighash)) {
+                                    res[sig.sighash] = new Set([sig.signature]);
+                                } else {
+                                    res[sig.sighash].add(sig.signature);
+                                }
+                            }
+                        } catch (e) {
+                            // unrecoverable parser error (linearization failed, etc)
+                            console.error(e);
                         }
                     }
                     return res;
                 }, {});
             console.log(result);
             console.log(Object.keys(result).length);
-            Object.values(result).filter(v => v.size > 1).forEach(dup => console.log(dup))
+            console.log(Object.values(result).filter(v => v.size > 1));
             console.log(errors);
         });
     } else {

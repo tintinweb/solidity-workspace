@@ -62,7 +62,10 @@ function getCanonicalizedArgumentFromAstNode(
       if (isEnum) {
         return 'uint8';
       }
-      if (!argStorageLocation && !isInsideStruct && !array) {
+      if (
+        !argStorageLocation 
+        && !isInsideStruct 
+        && (sourceUnit.contracts[argTypeNode.namePath] || !array)) {
         return 'address';
       }
       const struct =
@@ -72,7 +75,7 @@ function getCanonicalizedArgumentFromAstNode(
       if (!struct) {
         console.log(node);
         throw new Error(
-          `Failed to resolve struct ${node.namePath} in current scope.`
+          `Failed to resolve struct ${node.namePath} in current scope. ${_parent.name} ${contract._parent.filePath}`
         );
       }
       const structTypes = struct.members.map((m) =>
