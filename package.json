@@ -24,7 +24,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@solidity-parser/parser": "^0.14.3",
+    "@solidity-parser/parser": "^0.15.0",
     "c3-linearization": "^0.3.0",
     "keccak": "^3.0.2",
     "yargs": "^17.5.1"

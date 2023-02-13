@@ -141,77 +141,61 @@ function cmdParse(argv) {
 }
 
 function cmdFuncSig(argv) {
-    if (!argv.oneworkspace) {
-        // assume file-by-file import resolving
-        const tasks = [];
-        for (let f of argv.files) {
-            if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
-                // add files to virtual workspace
-                let ws = new Workspace(undefined, { parseImports: false });
-                ws.add(f).catch(e => {
-                    console.error(`ERROR: failed to parse: ${f} - ${e}`);
-                });
-                tasks.push(ws.withParserReady(undefined, true));
-            }
+    // assume file-by-file import resolving
+    const tasks = [];
+    for (let f of argv.files) {
+        if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
+            // add files to virtual workspace
+            let ws = new Workspace(undefined, { parseImports: false });
+            ws.add(f).catch(e => {
+                console.error(`ERROR: failed to parse: ${f} - ${e}`);
+            });
+            tasks.push(ws.withParserReady(undefined, true));
         }
-        Promise.allSettled(tasks).then(proms => {
-            const errors = [];
+    }
+    Promise.allSettled(tasks).then(proms => {
+        const errors = [];
 
-            const finishedPromises = proms.flat(1).filter(
-                (value) => value.status === 'fulfilled'
-            );
-            const result = finishedPromises
-                .reduce((res, suproms) => {
-                    for (const su of suproms.value) {
-                        if (!su.value) continue; //skip errors
-                        try {
-                            const sigdata = su.value.getAllFunctionSignatures();
-                            for (const sig of sigdata) {
-                                if (sig.hasOwnProperty('err')) {
-                                    errors.push(sig);
-                                    continue; //skip errors
-                                }
-                                if (!res.hasOwnProperty(sig.sighash)) {
-                                    res[sig.sighash] = new Set([sig.signature]);
-                                } else {
-                                    res[sig.sighash].add(sig.signature);
-                                }
+        const finishedPromises = proms.flat(1).filter(
+            (value) => value.status === 'fulfilled'
+        );
+        const result = finishedPromises
+            .reduce((res, suproms) => {
+                for (const su of suproms.value) {
+                    if (!su.value) continue; //skip errors
+                    try {
+                        const sigdata = su.value.getAllFunctionSignatures();
+                        for (const sig of sigdata) {
+                            if (sig.hasOwnProperty('err')) {
+                                errors.push(sig);
+                                continue; //skip errors
                             }
-                        } catch (e) {
-                            // unrecoverable parser error (linearization failed, etc)
-                            console.error(e);
+                            if (!res.hasOwnProperty(sig.sighash)) {
+                                res[sig.sighash] = new Set([sig.signature]);
+                            } else {
+                                res[sig.sighash].add(sig.signature);
+                            }
                         }
+                    } catch (e) {
+                        // unrecoverable parser error (linearization failed, etc)
+                        console.error(e);
                     }
-                    return res;
-                }, {});
+                }
+                return res;
+            }, {});
+
+        console.error(errors);
+        if (argv.json) {
+            console.log(toJSON({
+                result: result,
+                errors: errors,
+            }));
+        } else {
             console.log(result);
             console.log(Object.keys(result).length);
             console.log(Object.values(result).filter(v => v.size > 1));
-            console.log(errors);
-        });
-    } else {
-        argv.files.forEach(f => {
-            if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
-                // add files to virtual workspace
-                ws.add(f).catch(e => {
-                    console.error(`ERROR: failed to parse: ${f} - ${e}`);
-                });
-            }
-        });
-        ws.withParserReady(undefined, true).then(() => {
-
-            const result = [];
-
-            for (let su of Object.values(ws.sourceUnits)) {
-                console.log(su.getAllFunctionSignatures())
-            }
-            if (argv.json) {
-                console.log(toJSON(result));
-            } else {
-                console.log(result);
-            }
-        });
-    }
+        }
+    });
 }
 
 require('yargs') // eslint-disable-line
@@ -280,11 +264,6 @@ require('yargs') // eslint-disable-line
             })
             .option('j', {
                 alias: 'json',
-                type: 'boolean',
-                default: false,
-            })
-            .option('x', {
-                alias: 'oneworkspace',
                 type: 'boolean',
                 default: false,
             });

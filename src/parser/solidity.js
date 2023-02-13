@@ -229,9 +229,11 @@ class Workspace {
       return;
     }
 
+    /*
     console.log(
       `updating inherited names for contract ${contract.name}, subcontract: ${subcontract.name}`
     );
+    */
 
     if (subcontract.name == contract.name) {
       return; //skip self
