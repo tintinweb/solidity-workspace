@@ -9,14 +9,26 @@
 
 //this wraps a Promise and rejects if it has not settled after "millis" ms 
 const withTimeout = (millis, promise) => {
-    const timeout = new Promise((resolve, reject) =>
-        setTimeout(
+    var timeoutId;
+    const timeout = new Promise((resolve, reject) => {
+        timeoutId = setTimeout(
             () => reject(`Promise timed out after ${millis} ms.`),
-            millis));
-    return Promise.race([
-        promise,
-        timeout
-    ]);
+            millis);
+    })
+    return new Promise((resolve, reject) => {
+        Promise.race([
+            promise,
+            timeout
+        ]).then(
+            (value) => {
+                clearTimeout(timeoutId)
+                resolve(value);
+            },
+            (reason) => {
+                clearTimeout(timeoutId);
+                reject(reason);
+            });
+    });
 };
 
 module.exports = {
