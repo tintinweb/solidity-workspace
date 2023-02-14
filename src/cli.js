@@ -146,7 +146,7 @@ function cmdFuncSig(argv) {
     for (let f of argv.files) {
         if (f.endsWith(".sol") && !f.includes("test") && !f.includes("node_modules")) {
             // add files to virtual workspace
-            let ws = new Workspace(undefined, { parseImports: false });
+            let ws = new Workspace(undefined, { parseImports: true });
             ws.add(f).catch(e => {
                 console.error(`ERROR: failed to parse: ${f} - ${e}`);
             });
