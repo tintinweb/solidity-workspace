@@ -806,7 +806,7 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
     if (!contract) {
       return;
     }
-    for (let f of contract.functions) {
+    for (let f of [...contract.functions, ...Object.values(contract.modifiers)]) {
       let loc = f._node.loc;
       if (line < loc.start.line) {
         continue;
