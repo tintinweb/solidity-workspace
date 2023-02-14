@@ -31,15 +31,15 @@ function getCanonicalizedArgumentFromAstNode(
   node,
   _parent,
   contract,
-  array = false,
+  isInArray = false,
   isInsideStruct = false
 ) {
-  if (!array && !node.typeName) {
+  if (!isInArray && !node.typeName) {
 
     throw new Error('Failed to unpack function argument type');
   }
   const argStorageLocation = node.storageLocation;
-  const argTypeNode = !array ? node.typeName : node;
+  const argTypeNode = !isInArray ? node.typeName : node;
   const sourceUnit = contract._parent;
   switch (argTypeNode.type) {
     case 'ElementaryTypeName':
@@ -65,7 +65,7 @@ function getCanonicalizedArgumentFromAstNode(
       if (
         !argStorageLocation
         && !isInsideStruct
-        && (sourceUnit.contracts[argTypeNode.namePath]) || sourceUnit.workspace.findContractsByNameSync(argTypeNode.namePath) // fast lookup first, then slow
+        && (sourceUnit.contracts[argTypeNode.namePath] !== undefined || sourceUnit.workspace.findContractsByNameSync(argTypeNode.namePath).length) // fast lookup first, then slow
       ) {
         return 'address';
       }
