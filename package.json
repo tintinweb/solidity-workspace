@@ -1,6 +1,6 @@
 {
   "name": "solidity-workspace",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "description": "Turn solidity source code into AST objects with easy access to contracts, functions, ...",
   "keywords": [
     "solidity",
