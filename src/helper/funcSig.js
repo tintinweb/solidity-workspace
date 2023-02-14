@@ -63,9 +63,10 @@ function getCanonicalizedArgumentFromAstNode(
         return 'uint8';
       }
       if (
-        !argStorageLocation 
-        && !isInsideStruct 
-        && (sourceUnit.contracts[argTypeNode.namePath] || !array)) {
+        !argStorageLocation
+        && !isInsideStruct
+        && (sourceUnit.contracts[argTypeNode.namePath]) || sourceUnit.workspace.findContractsByNameSync(argTypeNode.namePath) // fast lookup first, then slow
+      ) {
         return 'address';
       }
       const struct =
