@@ -28,6 +28,7 @@ Commands:
                                             inherited parents)
   solidity-workspace stats <files..>        random parser stats
   solidity-workspace parse <files..>        print parsed objects
+  solidity-workspace funcsigs <files..>     print function signatures
 
 Options:
   -h, --help     Show help                                             [boolean]
@@ -160,7 +161,7 @@ TBD
 
 ## 🙏 Contributors
 
-- [@vquelque](https://github.com/vquelque)(#2)
+- [@vquelque](https://github.com/vquelque) - #2
 
 ## 🏆 References
 
