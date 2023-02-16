@@ -733,15 +733,13 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
           identifier.declarations = {
             local: [],
             global:
-              typeof this.contracts[contract].stateVars[identifier.name] ==
-                'undefined'
+              this.contracts[contract].stateVars.hasOwnProperty(identifier.name)
                 ? []
                 : this.contracts[contract].stateVars[identifier.name],
           };
 
           if (
-            typeof this.contracts[contract].stateVars[identifier.name] !=
-            'undefined'
+            this.contracts[contract].stateVars.hasOwnProperty(identifier.name)
           ) {
             this.contracts[contract].stateVars[
               identifier.name
