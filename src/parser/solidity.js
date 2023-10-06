@@ -1365,17 +1365,23 @@ class FunctionDef {
       // check if defined in
       //
       //
-      Identifier(__node) {
+      Identifier(__node, parent) {
         if (!current_function) {
           return;
         }
+
+        // handle the case where the identifier is part of a func call with named arugments
+        // we do not want to tag the key of the mapping as a function argument, only the value.      
+        if (parent.type == 'FunctionCall') {
+          return;
+        }
+    
         let ident = __node;
         ident.extra = {
           inFunction: current_function,
           scope: undefined,
           declaration: undefined,
         };
-
         // find declaration; narrow scope first
         if (current_function.declarations[ident.name]) {
           // local declaration; can be ARGS, RETURNS or BODY
@@ -1410,7 +1416,6 @@ class FunctionDef {
           // unclear scope, likely inherited
           // normal identifier or inconclusive
         }
-
         current_function.identifiers.push(__node);
       },
       AssemblyCall(__node) {
@@ -1422,8 +1427,24 @@ class FunctionDef {
         };
         current_function.identifiers.push(__node);
       },
+      FunctionCall(__node) {
+        if (!current_function) {
+          return;
+        }
+        const argsOfCurrFunction = __node.arguments.filter((arg) => current_function.declarations[arg.name]).map(arg => {
+          return {
+          ...arg,
+          extra: {
+            inFunction: current_function,
+            scope: 'argument',
+            declaration: current_function.arguments[arg.name],
+        }
+        }
+      });
+      
+      current_function.identifiers.push(...argsOfCurrFunction);
+      }
     });
-
     parser.visit(_node.modifiers, {
       ModifierInvocation: function (__node) {
         current_function.modifiers[__node.name] = __node;
