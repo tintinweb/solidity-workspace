@@ -32,6 +32,13 @@ function getExpressionIdentifier(node) {
   }
 }
 
+function isNodeAtLocation(node, loc){
+  return node.loc.start.line == loc.start.line && 
+    node.loc.end.line == loc.end.line && 
+    node.loc.start.column == loc.start.column && 
+    node.loc.end.column == loc.end.column;
+}
+
 class Workspace {
   constructor(basedirs, options) {
     this.basedirs = basedirs || [];
@@ -1369,14 +1376,6 @@ class FunctionDef {
         if (!current_function) {
           return;
         }
-
-        // we handle the case where the identifier is part of a func call with named arugments below
-        // (when we visit the FunctionCall node)
-        // we do not want to tag the key of the mapping as a function argument, only the value.      
-        if (parent.type == 'FunctionCall') {
-          return;
-        }
-    
         let ident = __node;
         ident.extra = {
           inFunction: current_function,
@@ -1387,8 +1386,12 @@ class FunctionDef {
         if (current_function.declarations[ident.name]) {
           // local declaration; can be ARGS, RETURNS or BODY
           if (current_function.arguments[ident.name]) {
-            ident.extra.scope = 'argument';
-            ident.extra.declaration = current_function.arguments[ident.name];
+            if(parent.type == 'FunctionCall' && !parent.arguments.some(pa => isNodeAtLocation(ident, pa.loc))){
+                ident.extra.scope = 'namedArgument';
+            } else {
+                ident.extra.scope = 'argument';
+                ident.extra.declaration = current_function.arguments[ident.name];
+            } 
           } else if (current_function.returns[ident.name]) {
             ident.extra.scope = 'returns';
             ident.extra.declaration = current_function.returns[ident.name];
@@ -1397,8 +1400,11 @@ class FunctionDef {
             ident.extra.declaration = current_function.declarations[ident.name];
           }
 
-          if (ident.extra.declaration.storageLocation == 'storage') {
-            ident.extra.scope = 'storageRef'; // is a storage reference; may be treated as statevar
+          if(ident.extra.declaration){
+            // might be unset for namedArgument (because no declaration)
+            if (ident.extra.declaration.storageLocation == 'storage') {
+              ident.extra.scope = 'storageRef'; // is a storage reference; may be treated as statevar
+            }
           }
         } else if (current_contract.stateVars[ident.name]) {
           // statevar
@@ -1427,23 +1433,6 @@ class FunctionDef {
           inFunction: current_function,
         };
         current_function.identifiers.push(__node);
-      },
-      FunctionCall(__node) {
-        if (!current_function) {
-          return;
-        }
-        const argsOfCurrFunction = __node.arguments.filter((arg) => current_function.declarations[arg.name]).map(arg => {
-          return {
-          ...arg,
-          extra: {
-            inFunction: current_function,
-            scope: 'argument',
-            declaration: current_function.arguments[arg.name],
-        }
-        }
-      });
-      
-      current_function.identifiers.push(...argsOfCurrFunction);
       }
     });
     parser.visit(_node.modifiers, {
