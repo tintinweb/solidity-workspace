@@ -1,6 +1,6 @@
 {
   "name": "solidity-workspace",
-  "version": "0.2.0",
+  "version": "0.2.0-dev2",
   "description": "Turn solidity source code into AST objects with easy access to contracts, functions, ...",
   "keywords": [
     "solidity",
@@ -24,7 +24,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@solidity-parser/parser": "^0.15.0",
+    "@solidity-parser/parser": "^0.16.1",
     "c3-linearization": "^0.3.0",
     "keccak": "^3.0.2",
     "yargs": "^17.5.1"
