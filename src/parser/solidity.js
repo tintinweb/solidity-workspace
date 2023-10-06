@@ -1370,7 +1370,8 @@ class FunctionDef {
           return;
         }
 
-        // handle the case where the identifier is part of a func call with named arugments
+        // we handle the case where the identifier is part of a func call with named arugments below
+        // (when we visit the FunctionCall node)
         // we do not want to tag the key of the mapping as a function argument, only the value.      
         if (parent.type == 'FunctionCall') {
           return;
