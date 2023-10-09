@@ -32,11 +32,13 @@ function getExpressionIdentifier(node) {
   }
 }
 
-function isNodeAtLocation(node, loc){
-  return node.loc.start.line == loc.start.line && 
-    node.loc.end.line == loc.end.line && 
-    node.loc.start.column == loc.start.column && 
-    node.loc.end.column == loc.end.column;
+function isNodeAtLocation(node, loc) {
+  return (
+    node.loc.start.line == loc.start.line &&
+    node.loc.end.line == loc.end.line &&
+    node.loc.start.column == loc.start.column &&
+    node.loc.end.column == loc.end.column
+  );
 }
 
 class Workspace {
@@ -46,7 +48,7 @@ class Workspace {
       parseImports: true,
       resolveIdentifiers: true,
       resolveInheritance: true,
-      ...options
+      ...options,
     };
     this.sourceUnits = {}; // su path -> sourceUnit
     this.sourceUnitNametoSourceUnit = {}; //su filename --> sourceUnit
@@ -739,10 +741,11 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
         func.identifiers.forEach((identifier) => {
           identifier.declarations = {
             local: [],
-            global:
-              this.contracts[contract].stateVars.hasOwnProperty(identifier.name)
-                ? []
-                : this.contracts[contract].stateVars[identifier.name],
+            global: this.contracts[contract].stateVars.hasOwnProperty(
+              identifier.name
+            )
+              ? []
+              : this.contracts[contract].stateVars[identifier.name],
           };
 
           if (
@@ -811,7 +814,10 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
     if (!contract) {
       return;
     }
-    for (let f of [...contract.functions, ...Object.values(contract.modifiers)]) {
+    for (let f of [
+      ...contract.functions,
+      ...Object.values(contract.modifiers),
+    ]) {
       let loc = f._node.loc;
       if (line < loc.start.line) {
         continue;
@@ -844,9 +850,9 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
   }
 
   getAllFunctionSignatures() {
-    return Object.values(this.contracts).map(
-      (contract) => (contract.getFunctionSignatures())
-    ).flat(1);
+    return Object.values(this.contracts)
+      .map((contract) => contract.getFunctionSignatures())
+      .flat(1);
   }
 }
 
@@ -865,6 +871,7 @@ class Contract {
     this.mappings = {}; // mapping declarations
     this.modifiers = {}; // modifier declarations
     this.functions = []; // function and method declarations; can be overloaded
+    this.nFunction = 0; //incremental count of functions/modifiers declared in this contract
     this.constructor = null; // ...
     this.events = []; // event declarations; can be overloaded
     this.inherited_names = {}; // all names inherited from other contracts
@@ -915,7 +922,12 @@ class Contract {
         current_contract.names[_node.name] = _node;
       }, // wrong def in code: https://github.com/solidityj/solidity-antlr4/blob/fbe865f8ba510cbdb1540fcf9517a42820a4d097/Solidity.g4#L78 for consttuctzor () ..
       ModifierDefinition(_node) {
-        current_function = new FunctionDef(current_contract, _node, 'modifier');
+        current_function = new FunctionDef(
+          current_contract,
+          _node,
+          'modifier',
+          current_contract.nFunction++
+        );
         current_contract.modifiers[_node.name] = current_function;
         current_contract.names[_node.name] = current_function;
       },
@@ -939,7 +951,12 @@ class Contract {
         });
       },
       FunctionDefinition(_node) {
-        let newFunc = new FunctionDef(current_contract, _node);
+        let newFunc = new FunctionDef(
+          current_contract,
+          _node,
+          'function',
+          current_contract.nFunction++
+        );
         current_contract.functions.push(newFunc);
         current_contract.names[_node.name] = newFunc;
       },
@@ -975,14 +992,15 @@ class Contract {
     const results = [];
     for (let func of Object.values(this.functions)) {
       // only non constructor/fallback non-internal functions
-      if (!func.name || ['private', 'internal'].includes(func.visibility)) continue;
+      if (!func.name || ['private', 'internal'].includes(func.visibility))
+        continue;
 
       try {
         const currSig = {
           contract: this.name,
-          ...func.getFunctionSignature()
+          ...func.getFunctionSignature(),
         };
-        results.push(currSig)
+        results.push(currSig);
       } catch (e) {
         // likely a Mapping in a public function of a library. skip it.
         // likely Struct lookup failed somehow
@@ -998,7 +1016,8 @@ class Contract {
 }
 
 class FunctionDef {
-  constructor(parent, _node, _type) {
+  constructor(parent, _node, _type, id) {
+    this.id = id; //used to identify overriden functions without relying on its signature (avoids the need to resolve argument identifiers). We use an incremental id for every contract function declaration.
     this.parent = parent;
     this._node = _node;
     this._type = _type || 'function';
@@ -1386,12 +1405,15 @@ class FunctionDef {
         if (current_function.declarations[ident.name]) {
           // local declaration; can be ARGS, RETURNS or BODY
           if (current_function.arguments[ident.name]) {
-            if(parent.type == 'FunctionCall' && !parent.arguments.some(pa => isNodeAtLocation(ident, pa.loc))){
-                ident.extra.scope = 'namedArgument';
+            if (
+              parent.type == 'FunctionCall' &&
+              !parent.arguments.some((pa) => isNodeAtLocation(ident, pa.loc))
+            ) {
+              ident.extra.scope = 'namedArgument';
             } else {
-                ident.extra.scope = 'argument';
-                ident.extra.declaration = current_function.arguments[ident.name];
-            } 
+              ident.extra.scope = 'argument';
+              ident.extra.declaration = current_function.arguments[ident.name];
+            }
           } else if (current_function.returns[ident.name]) {
             ident.extra.scope = 'returns';
             ident.extra.declaration = current_function.returns[ident.name];
@@ -1400,7 +1422,7 @@ class FunctionDef {
             ident.extra.declaration = current_function.declarations[ident.name];
           }
 
-          if(ident.extra.declaration){
+          if (ident.extra.declaration) {
             // might be unset for namedArgument (because no declaration)
             if (ident.extra.declaration.storageLocation == 'storage') {
               ident.extra.scope = 'storageRef'; // is a storage reference; may be treated as statevar
@@ -1433,7 +1455,7 @@ class FunctionDef {
           inFunction: current_function,
         };
         current_function.identifiers.push(__node);
-      }
+      },
     });
     parser.visit(_node.modifiers, {
       ModifierInvocation: function (__node) {
