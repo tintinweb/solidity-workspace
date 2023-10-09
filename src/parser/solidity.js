@@ -1138,6 +1138,7 @@ class FunctionDef {
           type: null,
           callType: null,
           declaration: null,
+          inFunction: current_function,
           _node: __node,
         };
 
