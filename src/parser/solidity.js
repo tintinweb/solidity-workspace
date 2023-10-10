@@ -62,8 +62,9 @@ class Workspace {
     options = options || {};
     fpath = path.resolve(fpath); //always use abspath
     if (!fpath) return;
+    let hash = options.content ? SourceUnit.getHash(options.content) : SourceUnit.getFileHash(fpath)
     // check if there's a running task for that source unit already
-    let maybeTasks = this._runningTasks.find((t) => t.meta === fpath);
+    let maybeTasks = this._runningTasks.find((t) => t.meta.fpath === fpath && t.meta.hash === hash);
     if (maybeTasks) {
       return maybeTasks.promise; // skip adding another job for this file
     }
@@ -95,7 +96,6 @@ class Workspace {
           cacheHit = true;
           if (fpath && e.sourceUnit.filePath !== fpath) {
             //same source unit hash, but other path
-            console.log('same source unit, other fpath');
             sourceUnit = e.sourceUnit.clone(); //clone the object, override the path
             sourceUnit.filePath = fpath;
           } else {
@@ -120,12 +120,9 @@ class Workspace {
 
       this.sourceUnitsCache.set(sourceUnit.hash, sourceUnit); //refresh the key
 
-      if (!samePath) {
-        //if we have a new source unit, store it.
-        this.sourceUnits[fpath] = sourceUnit;
-        this.sourceUnitNametoSourceUnit[path.basename(fpath)] = sourceUnit;
-      }
-
+      this.sourceUnits[fpath] = sourceUnit;
+      this.sourceUnitNametoSourceUnit[path.basename(fpath)] = sourceUnit;
+    
       if (!cacheHit && this.options.parseImports) {
         //avoid parsing imports for cacheHits
         try {
@@ -144,7 +141,10 @@ class Workspace {
     });
 
     this._runningTasks.push({
-      meta: fpath,
+      meta: {
+        fpath: fpath,
+        hash: hash 
+      },
       promise: withTimeout(PARSER_TIMEOUT, promise),
     }); //break if promise not resolved after 3sec
     return promise;
