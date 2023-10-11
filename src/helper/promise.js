@@ -8,18 +8,30 @@
 
 
 //this wraps a Promise and rejects if it has not settled after "millis" ms 
-const withTimeout = (millis, promise) => {
+const withTimeout = (millis, promise, cancelSignal) => {
     var timeoutId;
-    const timeout = new Promise((resolve, reject) => {
+    
+    const timeout = new Promise((_, reject) => {
         timeoutId = setTimeout(
             () => reject(`Promise timed out after ${millis} ms.`),
             millis);
     })
+    var promiseToRace = [
+        promise,
+        timeout
+    ];
+    if(cancelSignal){
+        promiseToRace.push(new Promise((_, reject) => {
+            if (cancelSignal.isCancellationRequested) {
+                return reject(new Error('Promise was cancelled early.'));
+            }
+            cancelSignal.onCancellationRequested( () => {
+                reject(new Error('Promise was cancelled.'));
+            });
+        }))
+    }
     return new Promise((resolve, reject) => {
-        Promise.race([
-            promise,
-            timeout
-        ]).then(
+        Promise.race(promiseToRace).then(
             (value) => {
                 clearTimeout(timeoutId)
                 resolve(value);

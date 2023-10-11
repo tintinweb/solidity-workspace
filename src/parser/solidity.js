@@ -127,7 +127,7 @@ class Workspace {
         //avoid parsing imports for cacheHits
         try {
           await sourceUnit._fsFindImports().forEach((importPath) =>
-            this.add(importPath, { skipExistingPath: true }).catch((e) => {
+            this.add(importPath, { skipExistingPath: true, cancellationToken: options.cancellationToken }).catch((e) => {
               console.error(importPath);
               console.error(e);
             })
@@ -145,7 +145,7 @@ class Workspace {
         fpath: fpath,
         hash: hash 
       },
-      promise: withTimeout(PARSER_TIMEOUT, promise),
+      promise: withTimeout(PARSER_TIMEOUT, promise, options.cancellationToken),
     }); //break if promise not resolved after 3sec
     return promise;
   }
