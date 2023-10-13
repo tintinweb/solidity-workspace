@@ -153,15 +153,9 @@ Contracts: 20
 Unique Contract Names (excluding duplicate contract names): 20
 ```
 
-
-
-## Developer
-
-TBD
-
 ## 🙏 Contributors
 
-- [@vquelque](https://github.com/vquelque) - #2
+- [@vquelque](https://github.com/vquelque) - #2 #127 # 128
 
 ## 🏆 References
 
