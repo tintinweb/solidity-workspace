@@ -12,7 +12,7 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/src/cli.js",
-            "args": ["${workspaceFolder}/examples/learnSolidity.sol"]
+            "args": ["parse", "${workspaceFolder}/examples/NamedArguments.sol"]
         }
     ]
 }

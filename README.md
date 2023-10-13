@@ -28,6 +28,7 @@ Commands:
                                             inherited parents)
   solidity-workspace stats <files..>        random parser stats
   solidity-workspace parse <files..>        print parsed objects
+  solidity-workspace funcsigs <files..>     print function signatures
 
 Options:
   -h, --help     Show help                                             [boolean]
@@ -152,12 +153,9 @@ Contracts: 20
 Unique Contract Names (excluding duplicate contract names): 20
 ```
 
+## 🙏 Contributors
 
-
-## Developer
-
-TBD
-
+- [@vquelque](https://github.com/vquelque) - #2 #127 # 128
 
 ## 🏆 References
 
