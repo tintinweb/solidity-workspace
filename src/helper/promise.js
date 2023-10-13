@@ -22,9 +22,6 @@ const withTimeout = (millis, promise, cancelSignal) => {
     ];
     if(cancelSignal){
         promiseToRace.push(new Promise((_, reject) => {
-            if (cancelSignal.isCancellationRequested) {
-                return reject(new Error('Promise was cancelled early.'));
-            }
             cancelSignal.onCancellationRequested( () => {
                 reject(new Error('Promise was cancelled.'));
             });
