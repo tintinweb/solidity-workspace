@@ -647,13 +647,19 @@ ${replaceImports(fs.readFileSync(this.filePath).toString('utf-8'))}
     return crypto.createHash('sha1').update(content).digest('hex');
   }
 
-  _fsFindImportsRecursive() {
-    let imports = this._fsFindImports();
+  _fsFindImportsRecursive(visited) {
+    if (visited===undefined) {
+      visited = [];
+    }
+    visited.push(this.filePath)
+    let imports = this._fsFindImports().filter(i => !visited.includes(i));
+
     imports = imports.concat(
       imports
-        .map((fspath) => this.workspace.get(fspath)._fsFindImportsRecursive())
+        .map((fspath) => this.workspace.get(fspath)._fsFindImportsRecursive([...imports, ...visited]))
         .flat(1)
     );
+    
     return imports;
   }
 
