@@ -20,12 +20,15 @@ const RESERVED_KEYWORDS = [
   "alias",
   "apply",
   "auto",
+  "byte",
   "case",
   "catch",
   "copyof",
   "default",
   "define",
+  "error",
   "final",
+  "from",
   "immutable",
   "implements",
   "in",
@@ -49,7 +52,10 @@ const RESERVED_KEYWORDS = [
   "try",
   "typedef",
   "typeof",
-  "unchecked"];
+  "unchecked",
+  "var"
+
+];
 
 function isLowerCase(str) {
   return str === str.toLowerCase();
