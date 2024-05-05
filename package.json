@@ -11,7 +11,7 @@
     "solidity-workspace": "src/cli.js"
   },
   "scripts": {
-    "test": "node --trace-warnings src/cli.js examples/*.sol",
+    "test": "node --trace-warnings src/cli.js parse examples/*.sol",
     "main": "node src/cli.js"
   },
   "author": {
@@ -24,9 +24,9 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@solidity-parser/parser": "^0.16.1",
+    "@solidity-parser/parser": "^0.18.0",
     "c3-linearization": "^0.3.0",
-    "keccak": "^3.0.2",
+    "keccak": "^3.0.4",
     "yargs": "^17.5.1"
   }
 }

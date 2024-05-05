@@ -13,20 +13,18 @@ const BUILTINS = [
   'sha256', 'sha3', 'ripemd160', 'ecrecover',
 ];
 
-//https://github.com/ethereum/solidity/blob/c5879589af646bee899745c1a21d065537ad0ea5/test/libsolidity/SolidityParser.cpp#L509
+//https://github.com/ethereum/solidity/blob/develop/test/libsolidity/SolidityParser.cpp#L509
 const RESERVED_KEYWORDS = [
-  "abstract",
   "after",
   "alias",
   "apply",
   "auto",
+  "byte",
   "case",
-  "catch",
   "copyof",
   "default",
   "define",
   "final",
-  "immutable",
   "implements",
   "in",
   "inline",
@@ -36,7 +34,6 @@ const RESERVED_KEYWORDS = [
   "mutable",
   "null",
   "of",
-  "override",
   "partial",
   "promise",
   "reference",
@@ -46,10 +43,10 @@ const RESERVED_KEYWORDS = [
   "static",
   "supports",
   "switch",
-  "try",
   "typedef",
   "typeof",
-  "unchecked"];
+  "var"
+];
 
 function isLowerCase(str) {
   return str === str.toLowerCase();
