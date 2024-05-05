@@ -16,7 +16,7 @@ ws.withParserReady().then(() => {
 **Single Source Unit Mode**
 
 ```javascript
-const su = new SourceUnit.fromSource(sourceCode);
+const su = new SourceUnit().fromSource(sourceCode);
 console.log(su.imports);
 ```
 
