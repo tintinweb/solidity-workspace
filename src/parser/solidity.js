@@ -495,7 +495,7 @@ class Workspace {
 
 class SourceUnit {
   constructor(workspace) {
-    this.workspace = workspace;
+    this.workspace = workspace ?? new Workspace();
     this.filePath = undefined;
     this.ast = undefined;
     this.contracts = {};

@@ -2,6 +2,24 @@
 
 A simple workspace based interface to the [solidity-parser](https://github.com/solidity-parser/parser) and objectified Abstract Syntax Tree
 
+**Workspace Mode**
+
+```javascript
+const ws = new Workspace();
+ws.add('/path/to/solidity.sol');
+ws.withParserReady().then(() => { 
+  /* do things */
+  console.log(ws.sourceUnits);
+});
+```
+
+**Single Source Unit Mode**
+
+```javascript
+const su = new SourceUnit.fromSource(sourceCode);
+console.log(su.imports);
+```
+
 ## TLDR;
 
 This library works like a headless IDE for solidity projects. Instead of manually parsing file-by-file you get meaningful objects you can work with. 
